@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+:root {
+  background: #0b1020;
+  font-family: Inter, Aptos, "Segoe UI", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #0b1020;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-sider {
+  border-right: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.brand {
+  min-height: 76px;
+  padding: 16px;
+}
+
+.brand-icon {
+  align-items: center;
+  background: rgba(22, 119, 255, 0.14);
+  border: 1px solid rgba(22, 119, 255, 0.28);
+  border-radius: 8px;
+  color: #69b1ff;
+  display: grid;
+  height: 42px;
+  place-items: center;
+  width: 42px;
+}
+
+.brand-title,
+.page-title {
+  margin: 0 !important;
+}
+
+.app-header {
+  align-items: center;
+  background: #111827;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  display: flex;
+  height: auto;
+  justify-content: space-between;
+  gap: 16px;
+  line-height: 1.4;
+  padding: 14px 20px;
+}
+
+.app-content {
+  padding: 20px;
+}
+
+.page-stack {
+  width: 100%;
+}
+
+.tv-chart-shell {
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.tv-chart-head {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.92);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 8px 12px;
+}
+
+.tv-chart-watermark {
+  left: 18px;
+  opacity: 0.18;
+  pointer-events: none;
+  position: absolute;
+  top: 72px;
+  z-index: 2;
+}
+
+.tv-chart-watermark strong {
+  color: #e5e7eb;
+  display: block;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.tv-chart-watermark span {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.chart-host {
+  height: 360px;
+  width: 100%;
+}
+
+.chart-box {
+  height: 300px;
+  width: 100%;
+}
+
+.clickable-list-item,
+.ant-table-row {
+  cursor: pointer;
+}
+
+.vertical-checkbox {
+  display: grid;
+  gap: 8px;
+}
+
+.vertical-checkbox .ant-checkbox-wrapper {
+  margin-inline-start: 0;
+}
+
+.tf-select {
+  width: 88px;
+}
+
+.quote-strip {
+  margin-bottom: 12px;
+}
+
+.chart-legend {
+  margin-top: 12px;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
+.ant-card,
+.ant-table,
+.ant-list,
+.ant-descriptions {
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .app-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-content {
+    padding: 12px;
+  }
+
+  .chart-host,
+  .chart-box {
+    height: 280px;
+  }
+}
