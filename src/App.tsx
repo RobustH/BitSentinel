@@ -1422,7 +1422,7 @@ function MonitorCenter() {
 }
 
 function StrategyMonitorCenter() {
-  const { strategyInstances, strategyStates, symbols, moneyFlows, signals, triggerMockSignal, selectSignal } = useAppStore();
+  const { strategyInstances, strategyStates, strategyEvaluations, symbols, moneyFlows, signals, evaluateStrategyMonitors, triggerMockSignal, selectSignal } = useAppStore();
   const [selectedInstanceId, setSelectedInstanceId] = useState(strategyInstances[0]?.id ?? "");
   const [stateFilter, setStateFilter] = useState<"all" | StrategyState["state"]>("all");
   const activeInstanceId = selectedInstanceId || strategyInstances[0]?.id || "";
@@ -1449,6 +1449,7 @@ function StrategyMonitorCenter() {
       const market = symbols.find((item) => item.symbol === state.symbol);
       const flow = moneyFlows.find((item) => item.symbol === state.symbol);
       const relatedSignals = signals.filter((signal) => signal.instanceId === state.instanceId && signal.symbol === state.symbol);
+      const evaluation = strategyEvaluations.find((item) => item.instanceId === state.instanceId && item.symbol === state.symbol);
 
       return {
         key: `${state.instanceId}-${state.symbol}`,
@@ -1465,6 +1466,7 @@ function StrategyMonitorCenter() {
         takerBuyRatio: flow?.takerBuyRatio ?? 0,
         signalCount: relatedSignals.length,
         strongSignalCount: relatedSignals.filter((signal) => signal.strength === "strong").length,
+        evaluation,
       };
     });
 
@@ -1580,6 +1582,7 @@ function StrategyMonitorCenter() {
                 <Title level={4} className="page-title">{activeInstance ? strategyDisplayName(activeInstance) : "监控中心"}</Title>
                 <Text type="secondary">查看当前策略下所有挂载币种的市场情况和状态机位置。</Text>
               </Space>
+              <Button onClick={evaluateStrategyMonitors}>重新计算策略</Button>
               <Select
                 value={stateFilter}
                 onChange={(value) => setStateFilter(value as typeof stateFilter)}

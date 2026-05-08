@@ -201,6 +201,28 @@ export type BinanceTickerUpdate = {
   eventTime: number;
 };
 
+export type ConditionEvaluation = {
+  id: string;
+  label: string;
+  slotKey?: TimeframeSlotKey;
+  passed: boolean;
+  score: number;
+  reason: string;
+};
+
+export type StrategyEvaluationResult = {
+  instanceId: string;
+  symbol: string;
+  evaluatedAt: string;
+  suggestedState: StrategyState["state"];
+  score: number;
+  passedCount: number;
+  totalCount: number;
+  shouldTriggerSignal: boolean;
+  nextWaitingFor: string;
+  conditions: ConditionEvaluation[];
+};
+
 export type CreateStrategyPayload = {
   templateId?: string;
   slotTemplateId?: string;

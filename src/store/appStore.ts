@@ -15,6 +15,7 @@ import {
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
+import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
   ConditionBlock,
   BacktestSnapshot,
@@ -30,6 +31,7 @@ import type {
   Signal,
   SignalDefinition,
   StrategyInstance,
+  StrategyEvaluationResult,
   StrategyState,
   StrategyTemplate,
   SymbolMarket,
@@ -47,6 +49,7 @@ type AppState = {
   strategyTemplates: StrategyTemplate[];
   strategyInstances: StrategyInstance[];
   strategyStates: StrategyState[];
+  strategyEvaluations: StrategyEvaluationResult[];
   signals: Signal[];
   signalReviews: SignalReviewResult[];
   timeframeDecisions: TimeframeDecision[];
@@ -60,6 +63,7 @@ type AppState = {
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
   refreshBinanceMarketData: () => Promise<void>;
+  evaluateStrategyMonitors: () => void;
   startBinanceMarketStream: () => void;
   stopBinanceMarketStream: () => void;
   addSignalDefinition: () => string;
@@ -139,6 +143,53 @@ const applyTickerToKline = (series: KlinePoint[] = [], update: BinanceTickerUpda
   return next;
 };
 
+const buildEvaluationPatch = (state: AppState): Pick<AppState, "strategyEvaluations" | "strategyStates" | "signals" | "symbols"> => {
+  const evaluations = evaluateAllStrategyInstances({
+    strategyInstances: state.strategyInstances,
+    marketSeries: state.marketSeries,
+    moneyFlows: state.moneyFlows,
+    signals: state.signals,
+  });
+  const createdSignals: Signal[] = evaluations
+    .filter((evaluation) => evaluation.shouldTriggerSignal)
+    .map((evaluation) => {
+      const instance = state.strategyInstances.find((item) => item.id === evaluation.instanceId);
+      return {
+        id: `sig-eval-${Date.now()}-${evaluation.instanceId}-${evaluation.symbol}`,
+        symbol: evaluation.symbol,
+        instanceId: evaluation.instanceId,
+        strategyVersion: instance?.version ?? 1,
+        strength: "strong",
+        direction: "long",
+        reason: `策略计算引擎触发：${evaluation.passedCount}/${evaluation.totalCount} 条件命中，评分 ${evaluation.score}`,
+        createdAt: "刚刚",
+        pushStatus: "sent",
+        flowConfirm: evaluation.conditions.filter((item) => item.passed).map((item) => item.label).join(" / "),
+      };
+    });
+  const evaluationByKey = new Map(evaluations.map((item) => [`${item.instanceId}-${item.symbol}`, item]));
+
+  return {
+    strategyEvaluations: evaluations,
+    signals: [...createdSignals, ...state.signals],
+    strategyStates: state.strategyStates.map((item) => {
+      const evaluation = evaluationByKey.get(`${item.instanceId}-${item.symbol}`);
+      if (!evaluation) return item;
+      return {
+        ...item,
+        state: evaluation.suggestedState,
+        lastUpdated: evaluation.evaluatedAt,
+        nextWaitingFor: evaluation.nextWaitingFor,
+      };
+    }),
+    symbols: state.symbols.map((item) =>
+      evaluations.some((evaluation) => evaluation.symbol === item.symbol && evaluation.suggestedState === "triggered")
+        ? { ...item, status: "alert" }
+        : item,
+    ),
+  };
+};
+
 const initialState = {
   activeSection: "dashboard",
   selectedSignalId: null,
@@ -149,6 +200,7 @@ const initialState = {
   strategyTemplates,
   strategyInstances,
   strategyStates,
+  strategyEvaluations: [],
   signals,
   signalReviews: [],
   timeframeDecisions,
@@ -223,6 +275,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           error: null,
         },
       });
+      set(buildEvaluationPatch(get()));
     } catch (error) {
       set({
         marketDataStatus: {
@@ -232,6 +285,9 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
         },
       });
     }
+  },
+  evaluateStrategyMonitors: () => {
+    set(buildEvaluationPatch(get()));
   },
   startBinanceMarketStream: () => {
     if (stopMarketStream) return;
@@ -282,6 +338,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
             error: null,
           },
         });
+        set(buildEvaluationPatch(get()));
       },
     });
   },

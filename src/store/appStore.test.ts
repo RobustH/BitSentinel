@@ -41,4 +41,20 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().marketStreamStatus.status).toBe("disconnected");
     expect(store.getState().symbols.length).toBeGreaterThan(0);
   });
+
+  it("evaluates strategy monitors without collapsing independent strategy states", () => {
+    const store = createBitSentinelStore();
+
+    store.getState().evaluateStrategyMonitors();
+
+    const state = store.getState();
+    expect(state.strategyEvaluations.length).toBeGreaterThan(0);
+    expect(state.strategyEvaluations[0]).toMatchObject({
+      instanceId: expect.any(String),
+      symbol: expect.any(String),
+      totalCount: expect.any(Number),
+      passedCount: expect.any(Number),
+    });
+    expect(state.strategyStates).toHaveLength(3);
+  });
 });
