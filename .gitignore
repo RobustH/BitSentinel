@@ -1,7 +1,11 @@
 node_modules/
 dist/
+__pycache__/
+*.py[cod]
 .env
 .env.*
+!.env.example
+!backend/.env.example
 *.local
 .DS_Store
 Thumbs.db
