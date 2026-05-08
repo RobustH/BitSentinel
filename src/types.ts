@@ -48,6 +48,12 @@ export type StrategyInstance = {
   templateId: string;
   slotTemplateId: string;
   name: string;
+  version?: number;
+  versionHistory?: Array<{
+    version: number;
+    changedAt: string;
+    summary: string;
+  }>;
   symbols: string[];
   enabled: boolean;
   slots: Record<TimeframeSlotKey, string>;
@@ -68,12 +74,66 @@ export type Signal = {
   id: string;
   symbol: string;
   instanceId: string;
+  strategyVersion?: number;
   strength: "strong" | "weak" | "watch";
   direction: "long" | "short" | "neutral";
   reason: string;
   createdAt: string;
   pushStatus: "sent" | "queued" | "muted";
   flowConfirm: string;
+};
+
+export type ReviewStatus = "pending" | "valid" | "invalid" | "watching" | "execution_error";
+
+export type ReviewErrorType = "chasing_entry" | "timeframe_mismatch" | "flow_divergence" | "early_signal" | "late_signal" | "risk_rule_missed";
+
+export type SignalReviewResult = {
+  signalId: string;
+  status: ReviewStatus;
+  note: string;
+  errorTypes: ReviewErrorType[];
+  traded: boolean;
+  executionScore: number;
+  reviewedAt: string;
+};
+
+export type BacktestDecision = "mount" | "observe" | "reject";
+
+export type BacktestSnapshot = {
+  id: string;
+  instanceId: string;
+  strategyVersion: number;
+  symbol: string;
+  timeframeCombo: string;
+  triggerCount: number;
+  winRate: number;
+  avgMfe: number;
+  avgMae: number;
+  flowPassRate: number;
+  decision: BacktestDecision;
+  conclusion: string;
+  createdAt: string;
+};
+
+export type AlertRule = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  minStrength: Signal["strength"];
+  requireBacktestDecision?: BacktestDecision;
+  minFlowPassRate: number;
+  channels: string[];
+  action: "popup" | "silent" | "escalate";
+};
+
+export type PushChannelConfig = {
+  id: string;
+  name: string;
+  type: "telegram" | "email" | "wechat" | "websocket";
+  enabled: boolean;
+  target: string;
+  severity: "all" | "strong_only" | "manual";
+  quietHours: string;
 };
 
 export type SymbolMarket = {
@@ -116,6 +176,29 @@ export type KlinePoint = {
   high: number;
   low: number;
   close: number;
+};
+
+export type MarketDataStatus = {
+  source: "mock" | "binance";
+  loading: boolean;
+  lastUpdated: string | null;
+  error: string | null;
+};
+
+export type MarketStreamStatus = {
+  status: "idle" | "connecting" | "connected" | "disconnected" | "error";
+  lastEventAt: string | null;
+  reconnects: number;
+  endpoint: string | null;
+  error: string | null;
+};
+
+export type BinanceTickerUpdate = {
+  symbol: string;
+  price: number;
+  change24h: number;
+  quoteVolume: number;
+  eventTime: number;
 };
 
 export type CreateStrategyPayload = {

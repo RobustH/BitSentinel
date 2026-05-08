@@ -31,4 +31,14 @@ describe("strategy assembly mock store", () => {
         .sort(),
     ).toEqual(["BTCUSDT", "ETHUSDT", "SOLUSDT"]);
   });
+
+  it("tracks market stream status independently from mock market data", () => {
+    const store = createBitSentinelStore();
+
+    expect(store.getState().marketStreamStatus.status).toBe("idle");
+    store.getState().stopBinanceMarketStream();
+
+    expect(store.getState().marketStreamStatus.status).toBe("disconnected");
+    expect(store.getState().symbols.length).toBeGreaterThan(0);
+  });
 });
