@@ -27,7 +27,10 @@ def macd(
 
     fast = ema(values, fast_period)
     slow = ema(values, slow_period)
-    macd_line = [fast_value - slow_value for fast_value, slow_value in zip(fast, slow, strict=False)]
+    macd_line = [
+        fast_value - slow_value
+        for fast_value, slow_value in zip(fast, slow, strict=False)
+    ]
     signal_line = ema(macd_line, signal_period)
     histogram = [
         macd_value - signal_value

@@ -1,6 +1,5 @@
 from collections.abc import Awaitable, Callable
 
-
 TickerHandler = Callable[[dict[str, str]], Awaitable[None]]
 
 
