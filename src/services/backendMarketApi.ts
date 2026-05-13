@@ -1,4 +1,4 @@
-import type { SymbolMarket } from "../types";
+import type { KlinePoint, SymbolMarket } from "../types";
 
 const BACKEND_API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -7,6 +7,14 @@ type BackendMarketTicker = {
   price: number;
   price_change_percent: number;
   quote_volume: number;
+};
+
+type BackendMarketKline = {
+  open_time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 };
 
 const requestJson = async <T>(path: string): Promise<T> => {
@@ -31,5 +39,31 @@ export async function fetchBackendMarketTickers(symbols: string[]): Promise<Symb
     change24h: Number(row.price_change_percent.toFixed(2)),
     volume: formatQuoteVolume(row.quote_volume),
     status: "normal",
+  }));
+}
+
+const toLocalTime = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day} ${hour}:${minute}`;
+};
+
+export async function fetchBackendMarketKlines(
+  symbol: string,
+  interval = "1h",
+  limit = 80,
+): Promise<KlinePoint[]> {
+  const params = new URLSearchParams({ symbol, interval, limit: String(limit) });
+  const rows = await requestJson<BackendMarketKline[]>(`/api/market/klines?${params.toString()}`);
+
+  return rows.map((row) => ({
+    time: toLocalTime(row.open_time),
+    open: row.open,
+    high: row.high,
+    low: row.low,
+    close: row.close,
   }));
 }

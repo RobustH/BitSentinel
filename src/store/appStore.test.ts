@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchBackendMarketTickers } from "../services/backendMarketApi";
+import { fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
+  fetchBackendMarketKlines: vi.fn(),
   fetchBackendMarketTickers: vi.fn(),
 }));
 
+const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 
 describe("strategy assembly mock store", () => {
   beforeEach(() => {
+    mockedFetchBackendMarketKlines.mockReset();
     mockedFetchBackendMarketTickers.mockReset();
   });
 
@@ -96,5 +99,35 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().symbols).toBe(previousSymbols);
     expect(store.getState().marketDataStatus.source).toBe("mock");
     expect(store.getState().marketDataStatus.error).toBe("backend unavailable");
+  });
+
+  it("refreshes symbol klines from backend API", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendMarketKlines.mockResolvedValue([
+      { time: "2026-05-13 20:00", open: 100, high: 110, low: 95, close: 108 },
+      { time: "2026-05-13 21:00", open: 108, high: 120, low: 104, close: 118 },
+    ]);
+
+    await store.getState().refreshBackendKlines("ETHUSDT", "4h");
+
+    expect(mockedFetchBackendMarketKlines).toHaveBeenCalledWith("ETHUSDT", "4h", 80);
+    expect(store.getState().marketSeries.ETHUSDT).toHaveLength(2);
+    expect(store.getState().klineRefreshStatus).toMatchObject({
+      source: "backend",
+      symbol: "ETHUSDT",
+      interval: "4h",
+      error: null,
+    });
+  });
+
+  it("keeps existing klines when backend kline refresh fails", async () => {
+    const store = createBitSentinelStore();
+    const previousSeries = store.getState().marketSeries.BTCUSDT;
+    mockedFetchBackendMarketKlines.mockRejectedValue(new Error("kline unavailable"));
+
+    await store.getState().refreshBackendKlines("BTCUSDT", "1d");
+
+    expect(store.getState().marketSeries.BTCUSDT).toBe(previousSeries);
+    expect(store.getState().klineRefreshStatus.error).toBe("kline unavailable");
   });
 });

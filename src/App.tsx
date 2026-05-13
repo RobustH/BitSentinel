@@ -509,7 +509,7 @@ function MonitorSignalTicker({ title, data, mode }: { title: string; data: Monit
   );
 }
 
-function MiniKline({ data, markerLabel = "信号触发" }: { data: KlinePoint[]; markerLabel?: string }) {
+function MiniKline({ data, markerLabel = "信号触发", symbol = "BTCUSDT" }: { data: KlinePoint[]; markerLabel?: string; symbol?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const last = data[data.length - 1];
   const previous = data[data.length - 2] ?? last;
@@ -596,7 +596,7 @@ function MiniKline({ data, markerLabel = "信号触发" }: { data: KlinePoint[];
         </Space>
       </div>
       <div className="tv-chart-watermark">
-        <strong>BTCUSDT</strong>
+        <strong>{symbol}</strong>
         <span>TradingView Lightweight</span>
       </div>
       <div className="chart-host" ref={ref} />
@@ -769,10 +769,11 @@ function MarketMonitor() {
 }
 
 function RankedMarketMonitor() {
-  const { symbols, moneyFlows, timeframeDecisions, strategyInstances, strategyStates, marketDataStatus, marketStreamStatus, refreshBackendMarketData, startBinanceMarketStream, stopBinanceMarketStream, mountSymbolToStrategy } = useAppStore();
+  const { symbols, moneyFlows, timeframeDecisions, strategyInstances, strategyStates, marketSeries, marketDataStatus, klineRefreshStatus, marketStreamStatus, refreshBackendMarketData, refreshBackendKlines, startBinanceMarketStream, stopBinanceMarketStream, mountSymbolToStrategy } = useAppStore();
   const [rankMode, setRankMode] = useState<MarketRankMode>("marketCap");
   const [customFactors, setCustomFactors] = useState<string[]>(["marketCap", "volume", "netFlow"]);
   const [selectedMarketSymbol, setSelectedMarketSymbol] = useState<string | null>(null);
+  const [selectedKlineInterval, setSelectedKlineInterval] = useState("1h");
   const [selectedStrategyId, setSelectedStrategyId] = useState("");
   const [mountResult, setMountResult] = useState<string | null>(null);
   const activeDecision = timeframeDecisions[0];
@@ -814,6 +815,9 @@ function RankedMarketMonitor() {
   }, [customFactors, moneyFlows, rankMode, symbols]);
 
   const selectedMarketRow = rows.find((row) => row.symbol === selectedMarketSymbol);
+  const selectedKlines = selectedMarketSymbol
+    ? (marketSeries[selectedMarketSymbol] ?? mockMarketSeries.BTCUSDT)
+    : mockMarketSeries.BTCUSDT;
   const selectedMountedState = selectedMarketSymbol
     ? strategyStates.find((state) => state.instanceId === selectedStrategyId && state.symbol === selectedMarketSymbol)
     : undefined;
@@ -1008,6 +1012,44 @@ function RankedMarketMonitor() {
                 <Text type={selectedMarketRow.netFlow >= 0 ? "success" : "danger"}>{selectedMarketRow.netFlow}M</Text>
               </Descriptions.Item>
             </Descriptions>
+
+            <Card
+              title={`${selectedMarketRow.symbol} K线`}
+              size="small"
+              extra={
+                <Space>
+                  <Segmented
+                    size="small"
+                    value={selectedKlineInterval}
+                    onChange={(value) => setSelectedKlineInterval(value as string)}
+                    options={["15m", "1h", "4h", "1d"]}
+                  />
+                  <Button
+                    size="small"
+                    loading={klineRefreshStatus.loading && klineRefreshStatus.symbol === selectedMarketRow.symbol}
+                    onClick={() => void refreshBackendKlines(selectedMarketRow.symbol, selectedKlineInterval)}
+                  >
+                    刷新K线
+                  </Button>
+                </Space>
+              }
+            >
+              <Space direction="vertical" size={8} className="page-stack">
+                <Space wrap>
+                  <Tag color={klineRefreshStatus.source === "backend" ? "blue" : "gold"}>
+                    {klineRefreshStatus.source === "backend" ? "后端K线" : "Mock K线"}
+                  </Tag>
+                  <Text type="secondary">
+                    周期：{klineRefreshStatus.symbol === selectedMarketRow.symbol ? (klineRefreshStatus.interval ?? selectedKlineInterval) : selectedKlineInterval}
+                  </Text>
+                  <Text type="secondary">更新：{klineRefreshStatus.lastUpdated ?? "尚未刷新"}</Text>
+                </Space>
+                {klineRefreshStatus.error && klineRefreshStatus.symbol === selectedMarketRow.symbol && (
+                  <Text type="danger">K线刷新失败：{klineRefreshStatus.error}</Text>
+                )}
+                <MiniKline data={selectedKlines} markerLabel={`${selectedMarketRow.symbol} ${selectedKlineInterval}`} symbol={selectedMarketRow.symbol} />
+              </Space>
+            </Card>
 
             <Form layout="vertical">
               <Form.Item label="选择要挂载的监控策略">

@@ -14,7 +14,7 @@ import {
   timeframeSlotTemplates,
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
-import { fetchBackendMarketTickers } from "../services/backendMarketApi";
+import { fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -24,6 +24,7 @@ import type {
   CreateStrategyPayload,
   AlertRule,
   KlinePoint,
+  KlineRefreshStatus,
   MarketDataStatus,
   MarketStreamStatus,
   MoneyFlowPoint,
@@ -60,10 +61,12 @@ type AppState = {
   pushChannels: PushChannelConfig[];
   marketSeries: Record<string, KlinePoint[]>;
   marketDataStatus: MarketDataStatus;
+  klineRefreshStatus: KlineRefreshStatus;
   marketStreamStatus: MarketStreamStatus;
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
   refreshBackendMarketData: () => Promise<void>;
+  refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => void;
   startBinanceMarketStream: () => void;
@@ -217,6 +220,14 @@ const initialState = {
     lastUpdated: null,
     error: null,
   },
+  klineRefreshStatus: {
+    source: "mock",
+    loading: false,
+    symbol: null,
+    interval: null,
+    lastUpdated: null,
+    error: null,
+  },
   marketStreamStatus: {
     status: "idle",
     lastEventAt: null,
@@ -277,6 +288,46 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           ...get().marketDataStatus,
           loading: false,
           error: error instanceof Error ? error.message : "后端行情刷新失败",
+        },
+      });
+    }
+  },
+  refreshBackendKlines: async (symbol, interval = "1h") => {
+    set({
+      klineRefreshStatus: {
+        ...get().klineRefreshStatus,
+        loading: true,
+        symbol,
+        interval,
+        error: null,
+      },
+    });
+
+    try {
+      const nextKlines = await fetchBackendMarketKlines(symbol, interval, 80);
+      set({
+        marketSeries: {
+          ...get().marketSeries,
+          [symbol]: nextKlines,
+        },
+        klineRefreshStatus: {
+          source: "backend",
+          loading: false,
+          symbol,
+          interval,
+          lastUpdated: nowText(),
+          error: null,
+        },
+      });
+      set(buildEvaluationPatch(get()));
+    } catch (error) {
+      set({
+        klineRefreshStatus: {
+          ...get().klineRefreshStatus,
+          loading: false,
+          symbol,
+          interval,
+          error: error instanceof Error ? error.message : "后端 K 线刷新失败",
         },
       });
     }

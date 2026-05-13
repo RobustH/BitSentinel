@@ -185,6 +185,15 @@ export type MarketDataStatus = {
   error: string | null;
 };
 
+export type KlineRefreshStatus = {
+  source: "mock" | "backend";
+  loading: boolean;
+  symbol: string | null;
+  interval: string | null;
+  lastUpdated: string | null;
+  error: string | null;
+};
+
 export type MarketStreamStatus = {
   status: "idle" | "connecting" | "connected" | "disconnected" | "error";
   lastEventAt: string | null;
