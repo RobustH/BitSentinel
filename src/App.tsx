@@ -63,7 +63,7 @@ import {
 import { CandlestickSeries, HistogramSeries, LineSeries, createChart } from "lightweight-charts";
 import { marketSeries as mockMarketSeries } from "./mock/data";
 import { useAppStore } from "./store/appStore";
-import type { AlertRule, BacktestDecision, KlinePoint, MarketStreamStatus, PushChannelConfig, ReviewErrorType, ReviewStatus, Signal, SignalCategory, SignalDefinition, SignalReviewResult, StrategyInstance, StrategyState, TimeframeSlotKey } from "./types";
+import type { AlertRule, BacktestDecision, KlinePoint, MarketDataStatus, MarketStreamStatus, PushChannelConfig, ReviewErrorType, ReviewStatus, Signal, SignalCategory, SignalDefinition, SignalReviewResult, StrategyInstance, StrategyState, TimeframeSlotKey } from "./types";
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title, Paragraph } = Typography;
@@ -264,6 +264,12 @@ const streamStatusMeta: Record<MarketStreamStatus["status"], { label: string; co
   connected: { label: "实时连接", color: "green" },
   disconnected: { label: "已断开", color: "gold" },
   error: { label: "连接错误", color: "red" },
+};
+
+const marketSourceMeta: Record<MarketDataStatus["source"], { label: string; color: string }> = {
+  mock: { label: "Mock 数据", color: "gold" },
+  binance: { label: "Binance 直连", color: "green" },
+  backend: { label: "后端实时数据", color: "blue" },
 };
 
 function formatPrice(value: number) {
@@ -763,7 +769,7 @@ function MarketMonitor() {
 }
 
 function RankedMarketMonitor() {
-  const { symbols, moneyFlows, timeframeDecisions, strategyInstances, strategyStates, marketDataStatus, marketStreamStatus, refreshBinanceMarketData, startBinanceMarketStream, stopBinanceMarketStream, mountSymbolToStrategy } = useAppStore();
+  const { symbols, moneyFlows, timeframeDecisions, strategyInstances, strategyStates, marketDataStatus, marketStreamStatus, refreshBackendMarketData, startBinanceMarketStream, stopBinanceMarketStream, mountSymbolToStrategy } = useAppStore();
   const [rankMode, setRankMode] = useState<MarketRankMode>("marketCap");
   const [customFactors, setCustomFactors] = useState<string[]>(["marketCap", "volume", "netFlow"]);
   const [selectedMarketSymbol, setSelectedMarketSymbol] = useState<string | null>(null);
@@ -904,8 +910,8 @@ function RankedMarketMonitor() {
               { label: "自定义", value: "custom" },
             ]}
           />
-          <Button loading={marketDataStatus.loading} onClick={() => void refreshBinanceMarketData()}>
-            刷新 Binance 行情
+          <Button loading={marketDataStatus.loading} onClick={() => void refreshBackendMarketData()}>
+            刷新后端行情
           </Button>
           <Button
             type={marketStreamStatus.status === "connected" ? "default" : "primary"}
@@ -917,8 +923,8 @@ function RankedMarketMonitor() {
         </Flex>
         <div className="market-source-bar">
           <Space wrap>
-            <Tag color={marketDataStatus.source === "binance" ? "green" : "gold"}>
-              {marketDataStatus.source === "binance" ? "Binance 实时数据" : "Mock 数据"}
+            <Tag color={marketSourceMeta[marketDataStatus.source].color}>
+              {marketSourceMeta[marketDataStatus.source].label}
             </Tag>
             <Tag color={streamStatusMeta[marketStreamStatus.status].color}>
               {streamStatusMeta[marketStreamStatus.status].label}
@@ -3004,7 +3010,7 @@ function StrategyWorkspace() {
 }
 
 function DataWarehouse() {
-  const { symbols, moneyFlows, signals, strategyStates, timeframeDecisions, marketSeries, marketDataStatus, marketStreamStatus, refreshBinanceMarketData } = useAppStore();
+  const { symbols, moneyFlows, signals, strategyStates, timeframeDecisions, marketSeries, marketDataStatus, marketStreamStatus, refreshBackendMarketData } = useAppStore();
   const klineCount = Object.values(marketSeries).reduce((sum, series) => sum + series.length, 0);
   const warehouseTypes = [
     {
@@ -3116,14 +3122,14 @@ function DataWarehouse() {
       <Card>
         <Flex justify="space-between" align="center" gap={16} wrap>
           <Space direction="vertical" size={4}>
-            <Text strong>Binance 公共行情源</Text>
+            <Text strong>后端公共行情源</Text>
             <Text type="secondary">
-              当前数据源：{marketDataStatus.source === "binance" ? "Binance" : "Mock"} / 最近更新：{marketDataStatus.lastUpdated ?? "尚未刷新"}
+              当前数据源：{marketSourceMeta[marketDataStatus.source].label} / 最近更新：{marketDataStatus.lastUpdated ?? "尚未刷新"}
             </Text>
             <Text type="secondary">实时连接：{streamStatusMeta[marketStreamStatus.status].label} / 最近推送：{marketStreamStatus.lastEventAt ?? "-"}</Text>
             {marketDataStatus.error && <Text type="danger">最近错误：{marketDataStatus.error}</Text>}
           </Space>
-          <Button loading={marketDataStatus.loading} onClick={() => void refreshBinanceMarketData()}>
+          <Button loading={marketDataStatus.loading} onClick={() => void refreshBackendMarketData()}>
             刷新数据仓行情
           </Button>
         </Flex>

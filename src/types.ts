@@ -179,7 +179,7 @@ export type KlinePoint = {
 };
 
 export type MarketDataStatus = {
-  source: "mock" | "binance";
+  source: "mock" | "binance" | "backend";
   loading: boolean;
   lastUpdated: string | null;
   error: string | null;

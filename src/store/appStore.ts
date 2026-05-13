@@ -14,6 +14,7 @@ import {
   timeframeSlotTemplates,
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
+import { fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -62,6 +63,7 @@ type AppState = {
   marketStreamStatus: MarketStreamStatus;
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
+  refreshBackendMarketData: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => void;
   startBinanceMarketStream: () => void;
@@ -249,6 +251,36 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
   ...initialState,
   setActiveSection: (section) => set({ activeSection: section }),
   selectSignal: (signalId) => set({ selectedSignalId: signalId }),
+  refreshBackendMarketData: async () => {
+    const targetSymbols = get().symbols.map((item) => item.symbol);
+    set({ marketDataStatus: { ...get().marketDataStatus, loading: true, error: null } });
+
+    try {
+      const nextSymbols = await fetchBackendMarketTickers(targetSymbols);
+      const previousStatusBySymbol = new Map(get().symbols.map((item) => [item.symbol, item.status]));
+      set({
+        symbols: nextSymbols.map((item) => ({
+          ...item,
+          status: previousStatusBySymbol.get(item.symbol) ?? item.status,
+        })),
+        marketDataStatus: {
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: null,
+        },
+      });
+      set(buildEvaluationPatch(get()));
+    } catch (error) {
+      set({
+        marketDataStatus: {
+          ...get().marketDataStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端行情刷新失败",
+        },
+      });
+    }
+  },
   refreshBinanceMarketData: async () => {
     const targetSymbols = get().symbols.map((item) => item.symbol);
     set({ marketDataStatus: { ...get().marketDataStatus, loading: true, error: null } });

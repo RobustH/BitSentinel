@@ -1,7 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { createBitSentinelStore } from "./appStore";
 
+vi.mock("../services/backendMarketApi", () => ({
+  fetchBackendMarketTickers: vi.fn(),
+}));
+
+const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
+
 describe("strategy assembly mock store", () => {
+  beforeEach(() => {
+    mockedFetchBackendMarketTickers.mockReset();
+  });
+
   it("creates a strategy instance and independent states for every mounted symbol", () => {
     const store = createBitSentinelStore();
 
@@ -56,5 +67,34 @@ describe("strategy assembly mock store", () => {
       passedCount: expect.any(Number),
     });
     expect(state.strategyStates).toHaveLength(3);
+  });
+
+  it("refreshes market data from backend API and marks backend as source", async () => {
+    const store = createBitSentinelStore();
+    const nextSymbols = store.getState().symbols.map((item) => ({
+      ...item,
+      price: item.symbol === "BTCUSDT" ? 123456 : item.price,
+      change24h: item.symbol === "BTCUSDT" ? 1.23 : item.change24h,
+    }));
+    mockedFetchBackendMarketTickers.mockResolvedValue(nextSymbols);
+
+    await store.getState().refreshBackendMarketData();
+
+    expect(mockedFetchBackendMarketTickers).toHaveBeenCalledWith(["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]);
+    expect(store.getState().marketDataStatus.source).toBe("backend");
+    expect(store.getState().marketDataStatus.error).toBeNull();
+    expect(store.getState().symbols.find((item) => item.symbol === "BTCUSDT")?.price).toBe(123456);
+  });
+
+  it("keeps existing market data when backend refresh fails", async () => {
+    const store = createBitSentinelStore();
+    const previousSymbols = store.getState().symbols;
+    mockedFetchBackendMarketTickers.mockRejectedValue(new Error("backend unavailable"));
+
+    await store.getState().refreshBackendMarketData();
+
+    expect(store.getState().symbols).toBe(previousSymbols);
+    expect(store.getState().marketDataStatus.source).toBe("mock");
+    expect(store.getState().marketDataStatus.error).toBe("backend unavailable");
   });
 });
