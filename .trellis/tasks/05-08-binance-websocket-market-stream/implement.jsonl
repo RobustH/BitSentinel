@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis\\spec\\frontend\\hook-guidelines.md", "reason": "副作用和 WebSocket 清理约定"}
+{"file": ".trellis\\tasks\\05-08-binance-websocket-market-stream\\research\\binance-websocket-market-stream.md", "reason": "Binance WebSocket 调研"}
+{"file": ".trellis\\spec\\frontend\\state-management.md", "reason": "Zustand 和实时数据状态约定"}
+{"file": ".trellis\\spec\\frontend\\index.md", "reason": "前端技术栈和边界"}

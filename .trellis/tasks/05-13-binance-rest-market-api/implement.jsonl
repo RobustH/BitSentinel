@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis\\spec\\architecture\\technology-boundaries.md", "reason": "Python 后端与前端职责边界"}
+{"file": ".trellis\\tasks\\05-13-binance-rest-market-api\\research\\binance-rest-market-api.md", "reason": "Binance REST API 映射研究"}
+{"file": ".trellis\\spec\\architecture\\backend-roadmap.md", "reason": "后端路线与行情采集范围"}

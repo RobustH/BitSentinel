@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis\\spec\\architecture\\index.md", "reason": "架构索引"}
+{"file": ".trellis\\spec\\architecture\\technology-boundaries.md", "reason": "Python 后端与前端职责边界"}
+{"file": ".trellis\\spec\\architecture\\backend-roadmap.md", "reason": "后端路线和最小骨架范围"}
+{"file": ".trellis\\tasks\\05-08-python-backend-skeleton\\research\\python-backend-skeleton.md", "reason": "后端骨架研究记录"}

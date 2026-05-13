@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis\\spec\\frontend\\state-management.md", "reason": "Zustand 状态和策略状态粒度"}
+{"file": ".trellis\\spec\\frontend\\index.md", "reason": "前端技术栈和边界"}
+{"file": ".trellis\\spec\\frontend\\type-safety.md", "reason": "类型定义约束"}
+{"file": ".trellis\\tasks\\05-08-strategy-evaluation-engine\\research\\strategy-evaluation-engine.md", "reason": "策略计算规则调研"}
