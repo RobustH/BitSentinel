@@ -194,6 +194,37 @@ export type KlineRefreshStatus = {
   error: string | null;
 };
 
+export type IndicatorTrend = "bullish" | "bearish" | "neutral";
+
+export type IndicatorSummary = {
+  symbol: string;
+  interval: string;
+  latestClose: number;
+  ema: {
+    ema9: number;
+    ema21: number;
+    ema55: number;
+    alignment: "bullish" | "bearish" | "mixed";
+  };
+  macd: {
+    dif: number;
+    dea: number;
+    histogram: number;
+    signal: "bullish_cross" | "bearish_cross" | "bullish" | "bearish" | "neutral";
+  };
+  trend: IndicatorTrend;
+  score: number;
+  sourceBars: number;
+};
+
+export type IndicatorRefreshStatus = {
+  loading: boolean;
+  symbol: string | null;
+  interval: string | null;
+  lastUpdated: string | null;
+  error: string | null;
+};
+
 export type MarketStreamStatus = {
   status: "idle" | "connecting" | "connected" | "disconnected" | "error";
   lastEventAt: string | null;

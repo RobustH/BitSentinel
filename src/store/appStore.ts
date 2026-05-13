@@ -14,7 +14,7 @@ import {
   timeframeSlotTemplates,
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
-import { fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
+import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -25,6 +25,8 @@ import type {
   AlertRule,
   KlinePoint,
   KlineRefreshStatus,
+  IndicatorRefreshStatus,
+  IndicatorSummary,
   MarketDataStatus,
   MarketStreamStatus,
   MoneyFlowPoint,
@@ -60,13 +62,16 @@ type AppState = {
   alertRules: AlertRule[];
   pushChannels: PushChannelConfig[];
   marketSeries: Record<string, KlinePoint[]>;
+  indicatorSummaries: Record<string, IndicatorSummary>;
   marketDataStatus: MarketDataStatus;
   klineRefreshStatus: KlineRefreshStatus;
+  indicatorRefreshStatus: IndicatorRefreshStatus;
   marketStreamStatus: MarketStreamStatus;
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
   refreshBackendMarketData: () => Promise<void>;
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
+  refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => void;
   startBinanceMarketStream: () => void;
@@ -214,6 +219,7 @@ const initialState = {
   alertRules: defaultAlertRules,
   pushChannels: defaultPushChannels,
   marketSeries,
+  indicatorSummaries: {},
   marketDataStatus: {
     source: "mock",
     loading: false,
@@ -222,6 +228,13 @@ const initialState = {
   },
   klineRefreshStatus: {
     source: "mock",
+    loading: false,
+    symbol: null,
+    interval: null,
+    lastUpdated: null,
+    error: null,
+  },
+  indicatorRefreshStatus: {
     loading: false,
     symbol: null,
     interval: null,
@@ -328,6 +341,45 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           symbol,
           interval,
           error: error instanceof Error ? error.message : "后端 K 线刷新失败",
+        },
+      });
+    }
+  },
+  refreshBackendIndicatorSummary: async (symbol, interval = "1h") => {
+    const key = `${symbol}-${interval}`;
+    set({
+      indicatorRefreshStatus: {
+        ...get().indicatorRefreshStatus,
+        loading: true,
+        symbol,
+        interval,
+        error: null,
+      },
+    });
+
+    try {
+      const summary = await fetchBackendIndicatorSummary(symbol, interval, 200);
+      set({
+        indicatorSummaries: {
+          ...get().indicatorSummaries,
+          [key]: summary,
+        },
+        indicatorRefreshStatus: {
+          loading: false,
+          symbol,
+          interval,
+          lastUpdated: nowText(),
+          error: null,
+        },
+      });
+    } catch (error) {
+      set({
+        indicatorRefreshStatus: {
+          ...get().indicatorRefreshStatus,
+          loading: false,
+          symbol,
+          interval,
+          error: error instanceof Error ? error.message : "后端指标摘要刷新失败",
         },
       });
     }

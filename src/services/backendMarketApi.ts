@@ -1,4 +1,4 @@
-import type { KlinePoint, SymbolMarket } from "../types";
+import type { IndicatorSummary, KlinePoint, SymbolMarket } from "../types";
 
 const BACKEND_API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -15,6 +15,17 @@ type BackendMarketKline = {
   high: number;
   low: number;
   close: number;
+};
+
+type BackendIndicatorSummary = {
+  symbol: string;
+  interval: string;
+  latest_close: number;
+  ema: IndicatorSummary["ema"];
+  macd: IndicatorSummary["macd"];
+  trend: IndicatorSummary["trend"];
+  score: number;
+  source_bars: number;
 };
 
 const requestJson = async <T>(path: string): Promise<T> => {
@@ -66,4 +77,24 @@ export async function fetchBackendMarketKlines(
     low: row.low,
     close: row.close,
   }));
+}
+
+export async function fetchBackendIndicatorSummary(
+  symbol: string,
+  interval = "1h",
+  limit = 200,
+): Promise<IndicatorSummary> {
+  const params = new URLSearchParams({ symbol, interval, limit: String(limit) });
+  const row = await requestJson<BackendIndicatorSummary>(`/api/indicators/summary?${params.toString()}`);
+
+  return {
+    symbol: row.symbol,
+    interval: row.interval,
+    latestClose: row.latest_close,
+    ema: row.ema,
+    macd: row.macd,
+    trend: row.trend,
+    score: row.score,
+    sourceBars: row.source_bars,
+  };
 }

@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
+import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
+  fetchBackendIndicatorSummary: vi.fn(),
   fetchBackendMarketKlines: vi.fn(),
   fetchBackendMarketTickers: vi.fn(),
 }));
 
+const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummary);
 const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 
 describe("strategy assembly mock store", () => {
   beforeEach(() => {
+    mockedFetchBackendIndicatorSummary.mockReset();
     mockedFetchBackendMarketKlines.mockReset();
     mockedFetchBackendMarketTickers.mockReset();
   });
@@ -129,5 +132,35 @@ describe("strategy assembly mock store", () => {
 
     expect(store.getState().marketSeries.BTCUSDT).toBe(previousSeries);
     expect(store.getState().klineRefreshStatus.error).toBe("kline unavailable");
+  });
+
+  it("refreshes indicator summary from backend API", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendIndicatorSummary.mockResolvedValue({
+      symbol: "BTCUSDT",
+      interval: "1h",
+      latestClose: 100,
+      ema: { ema9: 99, ema21: 95, ema55: 90, alignment: "bullish" },
+      macd: { dif: 1.2, dea: 0.8, histogram: 0.4, signal: "bullish" },
+      trend: "bullish",
+      score: 100,
+      sourceBars: 200,
+    });
+
+    await store.getState().refreshBackendIndicatorSummary("BTCUSDT", "1h");
+
+    expect(mockedFetchBackendIndicatorSummary).toHaveBeenCalledWith("BTCUSDT", "1h", 200);
+    expect(store.getState().indicatorSummaries["BTCUSDT-1h"].trend).toBe("bullish");
+    expect(store.getState().indicatorRefreshStatus.error).toBeNull();
+  });
+
+  it("keeps previous indicator summary when backend indicator refresh fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendIndicatorSummary.mockRejectedValue(new Error("indicator unavailable"));
+
+    await store.getState().refreshBackendIndicatorSummary("BTCUSDT", "4h");
+
+    expect(store.getState().indicatorSummaries["BTCUSDT-4h"]).toBeUndefined();
+    expect(store.getState().indicatorRefreshStatus.error).toBe("indicator unavailable");
   });
 });

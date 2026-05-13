@@ -63,7 +63,7 @@ import {
 import { CandlestickSeries, HistogramSeries, LineSeries, createChart } from "lightweight-charts";
 import { marketSeries as mockMarketSeries } from "./mock/data";
 import { useAppStore } from "./store/appStore";
-import type { AlertRule, BacktestDecision, KlinePoint, MarketDataStatus, MarketStreamStatus, PushChannelConfig, ReviewErrorType, ReviewStatus, Signal, SignalCategory, SignalDefinition, SignalReviewResult, StrategyInstance, StrategyState, TimeframeSlotKey } from "./types";
+import type { AlertRule, BacktestDecision, IndicatorTrend, KlinePoint, MarketDataStatus, MarketStreamStatus, PushChannelConfig, ReviewErrorType, ReviewStatus, Signal, SignalCategory, SignalDefinition, SignalReviewResult, StrategyInstance, StrategyState, TimeframeSlotKey } from "./types";
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title, Paragraph } = Typography;
@@ -270,6 +270,26 @@ const marketSourceMeta: Record<MarketDataStatus["source"], { label: string; colo
   mock: { label: "Mock 数据", color: "gold" },
   binance: { label: "Binance 直连", color: "green" },
   backend: { label: "后端实时数据", color: "blue" },
+};
+
+const trendMeta: Record<IndicatorTrend, { label: string; color: string }> = {
+  bullish: { label: "多头趋势", color: "green" },
+  bearish: { label: "空头趋势", color: "red" },
+  neutral: { label: "震荡/中性", color: "gold" },
+};
+
+const emaAlignmentLabel = {
+  bullish: "EMA 多头排列",
+  bearish: "EMA 空头排列",
+  mixed: "EMA 纠缠",
+};
+
+const macdSignalLabel = {
+  bullish_cross: "MACD 金叉",
+  bearish_cross: "MACD 死叉",
+  bullish: "MACD 多头",
+  bearish: "MACD 空头",
+  neutral: "MACD 中性",
 };
 
 function formatPrice(value: number) {
@@ -769,7 +789,7 @@ function MarketMonitor() {
 }
 
 function RankedMarketMonitor() {
-  const { symbols, moneyFlows, timeframeDecisions, strategyInstances, strategyStates, marketSeries, marketDataStatus, klineRefreshStatus, marketStreamStatus, refreshBackendMarketData, refreshBackendKlines, startBinanceMarketStream, stopBinanceMarketStream, mountSymbolToStrategy } = useAppStore();
+  const { symbols, moneyFlows, timeframeDecisions, strategyInstances, strategyStates, marketSeries, indicatorSummaries, marketDataStatus, klineRefreshStatus, indicatorRefreshStatus, marketStreamStatus, refreshBackendMarketData, refreshBackendKlines, refreshBackendIndicatorSummary, startBinanceMarketStream, stopBinanceMarketStream, mountSymbolToStrategy } = useAppStore();
   const [rankMode, setRankMode] = useState<MarketRankMode>("marketCap");
   const [customFactors, setCustomFactors] = useState<string[]>(["marketCap", "volume", "netFlow"]);
   const [selectedMarketSymbol, setSelectedMarketSymbol] = useState<string | null>(null);
@@ -818,6 +838,9 @@ function RankedMarketMonitor() {
   const selectedKlines = selectedMarketSymbol
     ? (marketSeries[selectedMarketSymbol] ?? mockMarketSeries.BTCUSDT)
     : mockMarketSeries.BTCUSDT;
+  const selectedIndicatorSummary = selectedMarketSymbol
+    ? indicatorSummaries[`${selectedMarketSymbol}-${selectedKlineInterval}`]
+    : undefined;
   const selectedMountedState = selectedMarketSymbol
     ? strategyStates.find((state) => state.instanceId === selectedStrategyId && state.symbol === selectedMarketSymbol)
     : undefined;
@@ -1049,6 +1072,53 @@ function RankedMarketMonitor() {
                 )}
                 <MiniKline data={selectedKlines} markerLabel={`${selectedMarketRow.symbol} ${selectedKlineInterval}`} symbol={selectedMarketRow.symbol} />
               </Space>
+            </Card>
+
+            <Card
+              title="后端指标摘要"
+              size="small"
+              extra={
+                <Button
+                  size="small"
+                  loading={indicatorRefreshStatus.loading && indicatorRefreshStatus.symbol === selectedMarketRow.symbol}
+                  onClick={() => void refreshBackendIndicatorSummary(selectedMarketRow.symbol, selectedKlineInterval)}
+                >
+                  刷新指标
+                </Button>
+              }
+            >
+              {selectedIndicatorSummary ? (
+                <Space direction="vertical" size={10} className="page-stack">
+                  <Space wrap>
+                    <Tag color={trendMeta[selectedIndicatorSummary.trend].color}>
+                      {trendMeta[selectedIndicatorSummary.trend].label}
+                    </Tag>
+                    <Tag color={selectedIndicatorSummary.ema.alignment === "bullish" ? "green" : selectedIndicatorSummary.ema.alignment === "bearish" ? "red" : "gold"}>
+                      {emaAlignmentLabel[selectedIndicatorSummary.ema.alignment]}
+                    </Tag>
+                    <Tag>{macdSignalLabel[selectedIndicatorSummary.macd.signal]}</Tag>
+                  </Space>
+                  <Progress percent={selectedIndicatorSummary.score} size="small" />
+                  <Descriptions column={1} bordered size="small">
+                    <Descriptions.Item label="周期">{selectedIndicatorSummary.interval}</Descriptions.Item>
+                    <Descriptions.Item label="最新收盘">{formatPrice(selectedIndicatorSummary.latestClose)}</Descriptions.Item>
+                    <Descriptions.Item label="EMA9 / EMA21 / EMA55">
+                      {formatPrice(selectedIndicatorSummary.ema.ema9)} / {formatPrice(selectedIndicatorSummary.ema.ema21)} / {formatPrice(selectedIndicatorSummary.ema.ema55)}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="MACD DIF / DEA / Hist">
+                      {selectedIndicatorSummary.macd.dif.toFixed(4)} / {selectedIndicatorSummary.macd.dea.toFixed(4)} / {selectedIndicatorSummary.macd.histogram.toFixed(4)}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="样本K线">{selectedIndicatorSummary.sourceBars}</Descriptions.Item>
+                  </Descriptions>
+                </Space>
+              ) : (
+                <Space direction="vertical" size={8}>
+                  <Text type="secondary">点击刷新指标，从后端计算 EMA/MACD 趋势摘要。</Text>
+                  {indicatorRefreshStatus.error && indicatorRefreshStatus.symbol === selectedMarketRow.symbol && (
+                    <Text type="danger">指标刷新失败：{indicatorRefreshStatus.error}</Text>
+                  )}
+                </Space>
+              )}
             </Card>
 
             <Form layout="vertical">
