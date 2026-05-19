@@ -241,3 +241,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 完成币安API对接
+
+**Date**: 2026-05-19
+**Task**: 完成币安API对接
+**Branch**: `main`
+
+### Summary
+
+完成币安公共行情 API 对接任务收尾，验证 TypeScript 和前端测试通过；相关公共行情状态管理约定已存在，无需额外更新规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fa333d2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

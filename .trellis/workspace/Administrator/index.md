@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-05-19
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~243 | Active |
+| `journal-1.md` | ~276 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-05-19 | 完成币安API对接 | `fa333d2` | `main` |
 | 7 | 2026-05-19 | 完成Binance WebSocket实时行情 | `fa333d2` | `main` |
 | 6 | 2026-05-19 | 完成策略条件计算引擎原型 | `11c6382` | `main` |
 | 5 | 2026-05-19 | 完成Python后端最小服务骨架 | `8ac5043`, `d9c987e` | `main` |
