@@ -37,6 +37,75 @@ Binance 数据采集 -> 指标计算 -> 策略状态机 -> 信号生成 -> 前�
   - postgres
   - redis 可先预留
 
+### 后端服务骨架契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 建立 `backend/` FastAPI 服务作为后续行情、指标、策略、回测、告警的统一后端承载。
+- Scope: 只定义入口、配置、目录边界和本地开发拓扑，不实现生产业务逻辑、数据库迁移或真实交易。
+
+#### 2. Signatures
+
+- 应用入口：`backend/app/main.py`
+- API 路由入口：`backend/app/api/router.py`
+- 健康检查：`GET /api/health`
+- 配置入口：`backend/app/core/config.py`
+- 数据库入口：`backend/app/core/database.py`
+- 本地环境示例：`backend/.env.example`
+- 本地拓扑：`docker-compose.yml`
+
+#### 3. Contracts
+
+- `/api/health` 返回服务状态、服务名和当前环境，且不得依赖数据库或外部网络。
+- `backend/app/api/` 只放 HTTP 路由和请求/响应边界。
+- `backend/app/core/` 只放配置、数据库连接等基础设施。
+- `backend/app/models/` 放领域模型和后续数据库模型。
+- `backend/app/services/market_data/` 放 Binance REST / WebSocket 行情采集。
+- `backend/app/services/indicators/` 放 EMA/MACD 等指标计算。
+- `backend/app/services/strategy_engine/` 放条件计算、状态机、信号生成和后续 Worker。
+- `backend/app/services/backtest/` 放事件回放、复盘和模拟交易记录。
+- `backend/app/services/alerts/` 放邮箱和后续推送通道。
+- `docker-compose.yml` 表达 backend、PostgreSQL/TimescaleDB、Redis 的本地开发拓扑。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 缺少 `.env` | 使用 `.env.example` 对应默认值或启动时报明确配置错误 |
+| 数据库不可用 | `/api/health` 仍可返回服务健康，不把外部依赖作为基础存活条件 |
+| 业务模块尚未实现 | 保留占位模块，但不得在入口导入会失败的未完成依赖 |
+| 后续新增路由 | 通过 `backend/app/api/router.py` 挂载，避免散落在 `main.py` |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 新后端能力按 `api -> services -> models/core` 边界落位。
+- Base: 业务逻辑未实现时保留轻量占位，不影响应用启动和健康检查。
+- Bad: 在浏览器端继续扩展生产指标、策略 Worker、回测或真实交易能力。
+
+#### 6. Tests Required
+
+- 后端测试覆盖 `/api/health`。
+- 后续新增 API 时补对应路由/转换测试。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# main.py 中直接塞业务逻辑和外部调用
+@app.get("/api/market/tickers")
+async def tickers():
+    return await call_binance_directly()
+```
+
+#### Correct
+
+```python
+# main.py 只创建应用并挂载 router；业务逻辑放到 api/services 分层
+app.include_router(api_router, prefix="/api")
+```
+
 ## 第二阶段：行情采集
 
 范围：
