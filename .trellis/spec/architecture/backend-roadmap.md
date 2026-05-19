@@ -277,6 +277,71 @@ const summary = await backendMarketApi.getIndicatorSummary(symbol, interval);
   - invalidate_conditions
 - 生成信号和状态变更事件。
 
+### 策略按请求评估 API 契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 后端提供 `POST /api/strategy/evaluate`，用于把策略条件计算从前端原型迁移到 Python 后端。
+- Scope: 只做按请求评估，不做后台常驻调度、数据库持久化、真实交易或 API Key 私有接口。
+
+#### 2. Signatures
+
+- HTTP: `POST /api/strategy/evaluate`
+- Backend route: `backend/app/api/strategy.py`
+- Request/response models: `backend/app/models/strategy.py`
+- Evaluator: `backend/app/services/strategy_engine/evaluator.py`
+
+#### 3. Contracts
+
+- Request:
+  - `strategy_instances`: 策略实例列表；每个实例包含 `id`、`name`、`symbols`、`enabled`、`condition_ids`、`risk_signal_ids`、`signal_ids_by_slot`。
+  - `market_series`: `symbol -> K线数组` 映射；K 线包含 `symbol`、`interval`、`open_time`、`open`、`high`、`low`、`close`、`volume`。
+  - `money_flows`: 可选资金流数组；每项包含 `symbol`、`funding_rate`、`oi_change`、`taker_buy_ratio`。
+  - `existing_signals`: 可选已有信号数组；用于避免重复生成强信号。
+- Response:
+  - `results`: 每个 `strategyInstanceId + symbol` 一条结果。
+  - 每条结果包含 `instance_id`、`symbol`、`state`、`score`、`passed_count`、`total_count`、`should_trigger_signal`、`next_waiting_for`、`conditions`。
+- Evaluator 必须是纯函数式服务：只根据请求输入返回结果，不读写数据库，不直接触发告警或交易。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 请求体字段类型错误 | Pydantic/FastAPI 返回 422 |
+| `enabled = false` 的策略实例 | 不输出评估结果 |
+| K 线不足 | 对应技术条件返回未命中和可解释原因，不抛异常 |
+| 资金流缺失 | 资金流类条件返回未命中，不抛异常 |
+| 已存在同策略/币种强信号 | `state` 可为 `triggered`，但 `should_trigger_signal = false` |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: API 返回稳定状态建议，后续 Worker、前端和回测都复用同一 evaluator。
+- Base: 输入只有少量 K 线或无资金流时，API 返回 `idle` 或待观察状态，并说明未命中原因。
+- Bad: evaluator 在评估过程中直接写数据库、发通知、下单或读取全局状态。
+
+#### 6. Tests Required
+
+- API 测试覆盖 `watching` / `waiting_trigger`、`triggered`、重复强信号、`invalidated`、缺少输入。
+- `ruff check .` 和 `pytest` 必须通过。
+- 后续接数据库或调度 Worker 时，需要新增状态恢复和幂等测试。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# 评估函数里产生副作用，后续无法复用到回测
+if result.should_trigger_signal:
+    send_email_alert()
+```
+
+#### Correct
+
+```python
+# 评估函数只返回事实结果，副作用由后续 Worker 或告警层处理
+return StrategyEvaluationResponse(results=evaluator.evaluate_all(request))
+```
+
 ## 第五阶段：回测与复盘
 
 推荐先做轻量事件回放：
