@@ -191,6 +191,56 @@ startBinanceMarketStream();
 
 ---
 
+## 后端 K 线接入约定
+
+### 1. Scope / Trigger
+- Trigger: 前端需要从 Python FastAPI `/api/market/klines` 获取指定交易对和周期的 K 线。
+- Scope: 只负责 UI 展示所需 K 线刷新；指标计算、落库和生产事实源由后端任务处理。
+
+### 2. Signatures
+- API client：`fetchBackendMarketKlines(symbol, interval, limit)`。
+- Store action：`refreshBackendKlines(symbol, interval)`。
+- Store state：K 线刷新状态必须记录 `loading`、`error`、`source`、`timeframe` 和最近更新时间。
+
+### 3. Contracts
+- 请求参数：`symbol` 使用交易对字符串，`interval` 支持 `15m` / `1h` / `4h` / `1d`，`limit` 使用页面所需的有限条数。
+- 成功时把返回 K 线写入 `marketSeries[symbol]`，并把来源标记为后端。
+- 失败时保留旧 `marketSeries[symbol]`，只更新错误状态；图表不能变空。
+- 组件只能调用 store action，不能直接请求 `/api/market/klines`。
+
+### 4. Validation & Error Matrix
+- 后端不可用 -> 保留旧 K 线，写入错误状态。
+- 返回空数组 -> 保留旧 K 线或显示可解释空态，不清空为不可用图表。
+- 周期切换 -> 更新 `timeframe` 后重新请求，不复用错误周期的数据状态。
+- 非当前选中币种返回 -> 只写入对应 `symbol` 的 `marketSeries`。
+
+### 5. Good/Base/Bad Cases
+- Good: 用户切换币种或周期后，store action 刷新对应 K 线并保持旧数据兜底。
+- Base: 后端慢或失败时，页面显示 loading/error，同时图表继续展示旧数据。
+- Bad: 组件直接 `fetch("/api/market/klines")`，失败时把 `marketSeries[symbol]` 清空。
+
+### 6. Tests Required
+- 成功分支：`refreshBackendKlines` 写入 `marketSeries[symbol]` 和刷新状态。
+- 失败分支：旧 K 线保留，错误写入状态。
+- TypeScript 必须通过，确保周期、K 线字段和状态字段一致。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 组件直接请求并覆盖图表数据，失败时容易清空旧 K 线
+const response = await fetch("/api/market/klines");
+```
+
+#### Correct
+```typescript
+// 组件只发起 store action，兜底和状态一致性由 store 维护
+refreshBackendKlines(symbol, timeframe);
+```
+
+
+---
+
 ## 策略条件计算引擎约定
 
 ### 1. Scope / Trigger
