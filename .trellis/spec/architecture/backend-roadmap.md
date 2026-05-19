@@ -47,6 +47,71 @@ Binance 数据采集 -> 指标计算 -> 策略状态机 -> 信号生成 -> 前�
 - 写入 PostgreSQL + TimescaleDB。
 - 采集失败重试和断线重连。
 
+### Binance REST 行情 API 契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 后端提供 `/api/market/*` 作为前端和后续 Worker 的统一公共行情入口。
+- Scope: 仅代理和标准化 Binance 公共行情数据，不包含 API Key、签名请求、账户数据、真实交易或落库。
+
+#### 2. Signatures
+
+- `GET /api/market/symbols`
+- `GET /api/market/tickers?symbols=BTCUSDT,ETHUSDT`
+- `GET /api/market/klines?symbol=BTCUSDT&interval=1h&limit=200`
+- `GET /api/market/funding-rate?symbol=BTCUSDT`
+- `GET /api/market/open-interest?symbol=BTCUSDT`
+- Backend route: `backend/app/api/market.py`
+- Binance service: `backend/app/services/market_data/binance_rest.py`
+
+#### 3. Contracts
+
+- `symbols`: 返回当前支持监控的交易对列表；第一版固定 `BTCUSDT`、`ETHUSDT`、`SOLUSDT`、`BNBUSDT`。
+- `tickers`: 返回 `symbol`、最新价格、24h 涨跌幅、成交量、成交额和来源时间。
+- `klines`: 请求必须包含 `symbol`；`interval` 默认 `1h`；`limit` 默认 `200`、最大 `1000`；返回标准化 K 线数组。
+- `funding-rate`: 请求必须包含 `symbol`；返回资金费率、标记价格、指数价格和下一次结算时间。
+- `open-interest`: 请求必须包含 `symbol`；返回合约持仓量。
+- 路由层负责 FastAPI 参数校验和 HTTP 错误映射；服务层负责 Binance 调用与原始数据获取；标准化转换函数负责响应字段稳定。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 必填 `symbol` 缺失 | FastAPI 参数校验返回 422 |
+| `limit` 超过 1000 | 路由层限制到允许范围或返回参数错误 |
+| Binance 超时、限流或非 2xx | 后端返回 502，不伪造成功行情 |
+| Binance 返回字段缺失/格式异常 | 转换层抛出可测试错误，API 映射为服务错误 |
+| 请求未支持 symbol | 第一版可由固定支持列表约束，后续改配置/数据库 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 前端只调用 BitSentinel 后端 `/api/market/*`，后端返回稳定领域字段。
+- Base: Binance 公共接口失败时，后端返回 502，前端按旧数据兜底。
+- Bad: 前端继续把 Binance REST endpoint 作为生产主路径，或后端加入私有密钥/下单能力。
+
+#### 6. Tests Required
+
+- API 测试覆盖 `symbols`、`tickers`、`klines`、`funding-rate`、`open-interest` 路由。
+- 转换测试覆盖 ticker、K 线、资金费率和 OI 字段映射。
+- `ruff check .` 和 `pytest` 必须通过。
+- 现有 `/api/health` 不得受影响。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+// 生产主路径直接从浏览器请求 Binance
+await fetch("https://api.binance.com/api/v3/ticker/24hr");
+```
+
+#### Correct
+
+```typescript
+// 前端通过 BitSentinel 后端获取标准化行情
+await fetch("/api/market/tickers?symbols=BTCUSDT,ETHUSDT");
+```
+
 ## 第三阶段：指标计算服务
 
 范围：
