@@ -274,3 +274,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: 完成后端策略按请求评估接口
+
+**Date**: 2026-05-19
+**Task**: 完成后端策略按请求评估接口
+**Branch**: `main`
+
+### Summary
+
+实现 POST /api/strategy/evaluate 后端按请求策略评估接口，补充策略评估架构契约，并记录后端策略 Worker 原型任务上下文。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4fe384c` | (see git log) |
+| `e7bcfcb` | (see git log) |
+| `cec668d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
