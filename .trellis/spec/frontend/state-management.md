@@ -141,6 +141,57 @@ Zustand action 应放在 `src/store/appStore.ts`，命名使用动词开头：
 
 ---
 
+## 后端 Ticker 接入约定
+
+### 1. Scope / Trigger
+- Trigger: 前端需要优先从 Python FastAPI `/api/market/tickers` 获取市场列表行情。
+- Scope: 只接后端公共行情 API，不删除前端 Binance 原型服务，不引入真实交易能力。
+
+### 2. Signatures
+- API client：`fetchBackendMarketTickers(symbols)`。
+- Store action：`refreshBackendMarketData()`。
+- Store state：`marketDataStatus.source` 必须支持 `mock` / `binance` / `backend`。
+
+### 3. Contracts
+- API client 只负责请求和响应解析，不直接修改 Zustand。
+- Store action 负责把后端 ticker 映射到现有 `symbols`，并维护 `marketDataStatus`。
+- 成功时把 `source` 标记为 `backend`。
+- 失败时保留旧市场数据或 mock 数据，只写入 `marketDataStatus.error`。
+- 组件只能调用 store action，不能直接请求 `/api/market/tickers`。
+
+### 4. Validation & Error Matrix
+- 后端不可用 -> 保留旧 `symbols`，记录错误状态。
+- 部分 symbol 缺失 -> 只更新返回的 symbol，未返回的保留旧值。
+- 响应字段格式异常 -> 记录错误，不写入半解析数据。
+- 前端 Binance 原型服务仍存在 -> 不作为后端路径失败时的隐式自动重试，除非 action 明确设计该回退。
+
+### 5. Good/Base/Bad Cases
+- Good: 页面点击刷新后调用 `refreshBackendMarketData`，成功显示后端来源。
+- Base: 后端失败时页面继续展示旧数据，同时显示错误。
+- Bad: 组件直接 `fetch("/api/market/tickers")`，或失败时清空市场列表。
+
+### 6. Tests Required
+- 成功分支：写入后端 ticker，`marketDataStatus.source` 为 `backend`。
+- 失败分支：旧 `symbols` 保留，错误写入 `marketDataStatus.error`。
+- TypeScript 必须通过，确保 `backend` source 类型和状态字段一致。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 组件直接请求后端，状态来源和失败兜底会分散
+const tickers = await fetch("/api/market/tickers");
+```
+
+#### Correct
+```typescript
+// 组件只触发 store action
+refreshBackendMarketData();
+```
+
+
+---
+
 ## Binance WebSocket 公共行情接入约定
 
 ### 1. Scope / Trigger
