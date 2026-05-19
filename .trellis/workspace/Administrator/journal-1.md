@@ -107,3 +107,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: 完成Binance REST行情后端接口
+
+**Date**: 2026-05-19
+**Task**: 完成Binance REST行情后端接口
+**Branch**: `main`
+
+### Summary
+
+完成 Binance REST 行情后端 API 任务收尾，验证后端 ruff 和 pytest，通过后补充 /api/market/* 架构契约并归档。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5382fc8` | (see git log) |
+| `0b744f1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
