@@ -416,6 +416,83 @@ results = evaluator.evaluate_all(request)
 return StrategyWorkerRunResponse(results=results, generated_signals=events)
 ```
 
+### 策略状态和信号持久化契约
+
+#### 1. Scope / Trigger
+
+- Trigger: Worker 已经能产出 `state_events` 和 `generated_signals`，后端需要有事实状态持久化层。
+- Scope: 第一版只定义 SQLAlchemy ORM 模型和 repository，不做 Alembic 迁移、查询 API、后台调度或真实告警。
+
+#### 2. Signatures
+
+- ORM Base: `backend/app/db/base.py`
+- ORM models: `backend/app/db/strategy.py`
+- Repository: `StrategyPersistenceRepository(session).apply_worker_run(run_response)`
+- Input: `StrategyWorkerRunResponse`
+- Output: `StrategyPersistenceSummary`
+
+#### 3. Contracts
+
+- `strategy_states` 表按 `strategy_instance_id + symbol` 唯一保存当前策略状态。
+- 状态字段至少包含：
+  - `strategy_instance_id`
+  - `symbol`
+  - `state`
+  - `last_score`
+  - `next_waiting_for`
+  - `updated_at`
+- `strategy_signals` 表按 `signal_id` 唯一保存 Worker 生成的信号。
+- 信号字段至少包含：
+  - `signal_id`
+  - `strategy_instance_id`
+  - `symbol`
+  - `strength`
+  - `direction`
+  - `reason`
+  - `created_at`
+- repository 只 `flush`，不隐式 `commit`；事务边界由 API、Worker 调度或调用方控制。
+- evaluator 和 Worker run summary 仍保持可测试边界；持久化层消费 Worker 输出，不把数据库副作用塞回 evaluator。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 首次状态事件 | 插入 `strategy_states` |
+| 同 `strategy_instance_id + symbol` 后续状态事件 | 更新已有 `strategy_states` |
+| 首次信号事件 | 插入 `strategy_signals` |
+| 重复 `signal_id` | 不重复插入，返回插入数为 0 |
+| 调用方需要事务提交 | 调用方显式 `commit`，repository 不自动提交 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: Worker 调度层调用 repository 后统一提交事务。
+- Base: 测试可用 SQLite 内存数据库创建 ORM 表验证 repository 行为。
+- Bad: repository 自动 commit，或在 evaluator 中直接写数据库。
+
+#### 6. Tests Required
+
+- repository 测试覆盖状态插入、状态更新、信号插入、重复信号幂等。
+- 测试不得依赖本地 PostgreSQL；使用 SQLite 内存数据库即可。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# evaluator 内部写数据库，破坏 API、Worker 和回测复用
+session.add(StrategySignalRecord(...))
+session.commit()
+```
+
+#### Correct
+
+```python
+# Worker 产出事件，repository 消费事件，调用方控制事务
+summary = repository.apply_worker_run(run_response)
+session.commit()
+```
+
 ## 第五阶段：回测与复盘
 
 推荐先做轻量事件回放：
