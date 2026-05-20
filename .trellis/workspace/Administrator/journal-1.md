@@ -342,3 +342,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: 后端策略 Worker 单次运行原型
+
+**Date**: 2026-05-20
+**Task**: 后端策略 Worker 单次运行原型
+**Branch**: `main`
+
+### Summary
+
+实现后端 StrategyWorker.run_once 和 /api/strategy/worker/run-once，输出状态变更事件和强信号事件；补充 Worker service/API 测试，并同步后端路线规范。验证 ruff 与 pytest 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `677965d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
