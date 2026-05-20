@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-05-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~377 | Active |
+| `journal-1.md` | ~410 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-05-20 | 策略状态和信号持久化原型 | `01cce59` | `main` |
 | 11 | 2026-05-20 | 后端策略 Worker 单次运行原型 | `677965d` | `main` |
 | 10 | 2026-05-20 | 前端接入后端策略评估 API | `6c380d0` | `main` |
 | 9 | 2026-05-19 | 完成后端策略按请求评估接口 | `4fe384c`, `e7bcfcb`, `cec668d` | `main` |

@@ -375,3 +375,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 策略状态和信号持久化原型
+
+**Date**: 2026-05-20
+**Task**: 策略状态和信号持久化原型
+**Branch**: `main`
+
+### Summary
+
+新增 SQLAlchemy Base、策略状态和信号 ORM 模型、StrategyPersistenceRepository；支持 Worker run summary 的状态 upsert 和信号幂等插入；补充 SQLite 内存库测试并同步后端路线规范。验证 ruff 与 pytest 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `01cce59` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
