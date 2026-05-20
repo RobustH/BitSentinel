@@ -47,6 +47,12 @@ class ExistingSignalInput(BaseModel):
     strength: SignalStrengthValue
 
 
+class ExistingStrategyStateInput(BaseModel):
+    instance_id: str
+    symbol: str
+    state: StrategyStateValue
+
+
 class StrategyEvaluationRequest(BaseModel):
     strategy_instances: list[StrategyInstanceInput]
     market_series: dict[str, list[StrategyKlineInput]]
@@ -76,4 +82,37 @@ class StrategyEvaluationResult(BaseModel):
 
 
 class StrategyEvaluationResponse(BaseModel):
+    results: list[StrategyEvaluationResult]
+
+
+class StrategyWorkerRunRequest(StrategyEvaluationRequest):
+    existing_states: list[ExistingStrategyStateInput] = Field(default_factory=list)
+
+
+class StrategyStateEvent(BaseModel):
+    instance_id: str
+    symbol: str
+    previous_state: StrategyStateValue | None = None
+    new_state: StrategyStateValue
+    score: int
+    next_waiting_for: str
+
+
+class StrategySignalEvent(BaseModel):
+    id: str
+    instance_id: str
+    symbol: str
+    strength: Literal["strong"]
+    direction: Literal["long"]
+    reason: str
+    created_at: str
+
+
+class StrategyWorkerRunResponse(BaseModel):
+    run_id: str
+    ran_at: str
+    evaluated_count: int
+    generated_signal_count: int
+    state_events: list[StrategyStateEvent]
+    generated_signals: list[StrategySignalEvent]
     results: list[StrategyEvaluationResult]

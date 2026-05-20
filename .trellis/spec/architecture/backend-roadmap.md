@@ -342,6 +342,80 @@ if result.should_trigger_signal:
 return StrategyEvaluationResponse(results=evaluator.evaluate_all(request))
 ```
 
+### 策略 Worker 单次运行 API 契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 后端需要把纯评估结果提升为 Worker 运行结果，表达状态变更事件和待生成信号事件。
+- Scope: 只做 `run_once` 原型，不做后台常驻调度、数据库持久化、真实告警或真实交易。
+
+#### 2. Signatures
+
+- HTTP: `POST /api/strategy/worker/run-once`
+- Request model: `StrategyWorkerRunRequest`
+- Response model: `StrategyWorkerRunResponse`
+- Worker service: `backend/app/services/strategy_engine/worker.py`
+
+#### 3. Contracts
+
+- Request 继承策略评估请求字段：
+  - `strategy_instances`
+  - `market_series`
+  - `money_flows`
+  - `existing_signals`
+- Request 额外包含：
+  - `existing_states`: 当前已知策略状态列表，每项按 `instance_id + symbol` 定位。
+- Response 包含：
+  - `run_id`: 本次 Worker 运行 ID。
+  - `ran_at`: UTC ISO 时间。
+  - `evaluated_count`: 本次评估结果数量。
+  - `generated_signal_count`: 本次待生成信号数量。
+  - `state_events`: 状态变化事件，只在旧状态与新状态不同或旧状态缺失时生成。
+  - `generated_signals`: 只在 `should_trigger_signal = true` 时生成。
+  - `results`: 原始 evaluator 结果，供前端和后续持久化复用。
+- Worker 必须复用 `StrategyEvaluator`，不得复制策略条件计算逻辑。
+- Worker 输出事件仍然是事实描述，不直接写数据库、不发通知、不下单。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 请求体字段类型错误 | Pydantic/FastAPI 返回 422 |
+| `enabled = false` 的策略实例 | evaluator 不输出结果，Worker 不生成事件 |
+| `existing_states` 缺失某个 `instance_id + symbol` | 允许生成 `previous_state = null` 的状态事件 |
+| 旧状态等于新状态 | 不生成状态事件 |
+| 已存在同策略/币种强信号 | evaluator 返回 `should_trigger_signal = false`，Worker 不生成重复信号 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: Worker run summary 可被后续 DB repository、告警层和前端共同消费。
+- Base: 没有已有状态时，Worker 仍可根据 evaluator 结果生成首个状态事件。
+- Bad: Worker 内部直接发邮件、写数据库、下单，或重新实现 EMA/MACD 计算。
+
+#### 6. Tests Required
+
+- Worker service 测试覆盖状态事件生成、重复强信号抑制、disabled 策略跳过。
+- API 测试覆盖 `/api/strategy/worker/run-once` 返回 run summary。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# Worker 中复制策略条件，并直接发通知
+if ema9 > ema21:
+    send_email_alert()
+```
+
+#### Correct
+
+```python
+# Worker 复用 evaluator，只产出事件，由后续层处理副作用
+results = evaluator.evaluate_all(request)
+return StrategyWorkerRunResponse(results=results, generated_signals=events)
+```
+
 ## 第五阶段：回测与复盘
 
 推荐先做轻量事件回放：
