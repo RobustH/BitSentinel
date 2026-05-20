@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
+import { fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
@@ -8,15 +9,21 @@ vi.mock("../services/backendMarketApi", () => ({
   fetchBackendMarketTickers: vi.fn(),
 }));
 
+vi.mock("../services/backendStrategyApi", () => ({
+  fetchBackendStrategyEvaluations: vi.fn(),
+}));
+
 const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummary);
 const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
+const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
 
 describe("strategy assembly mock store", () => {
   beforeEach(() => {
     mockedFetchBackendIndicatorSummary.mockReset();
     mockedFetchBackendMarketKlines.mockReset();
     mockedFetchBackendMarketTickers.mockReset();
+    mockedFetchBackendStrategyEvaluations.mockReset();
   });
 
   it("creates a strategy instance and independent states for every mounted symbol", () => {
@@ -59,19 +66,50 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().symbols.length).toBeGreaterThan(0);
   });
 
-  it("evaluates strategy monitors without collapsing independent strategy states", () => {
+  it("evaluates strategy monitors from backend without collapsing independent strategy states", async () => {
     const store = createBitSentinelStore();
+    mockedFetchBackendStrategyEvaluations.mockResolvedValue([
+      {
+        instanceId: "inst-ma-btc",
+        symbol: "BTCUSDT",
+        evaluatedAt: "2026-05-20 10:00:00",
+        suggestedState: "waiting_trigger",
+        score: 80,
+        passedCount: 4,
+        totalCount: 5,
+        shouldTriggerSignal: false,
+        nextWaitingFor: "后端返回：等待触发周期信号",
+        conditions: [],
+      },
+    ]);
 
-    store.getState().evaluateStrategyMonitors();
+    await store.getState().evaluateStrategyMonitors();
+
+    const state = store.getState();
+    expect(mockedFetchBackendStrategyEvaluations).toHaveBeenCalledWith({
+      strategyInstances: expect.any(Array),
+      marketSeries: expect.any(Object),
+      moneyFlows: expect.any(Array),
+      signals: expect.any(Array),
+    });
+    expect(state.strategyEvaluations).toHaveLength(1);
+    expect(state.strategyEvaluations[0]).toMatchObject({
+      instanceId: "inst-ma-btc",
+      symbol: "BTCUSDT",
+      totalCount: 5,
+      passedCount: 4,
+    });
+    expect(state.strategyStates).toHaveLength(3);
+  });
+
+  it("falls back to local strategy evaluation when backend evaluation fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendStrategyEvaluations.mockRejectedValue(new Error("strategy backend unavailable"));
+
+    await store.getState().evaluateStrategyMonitors();
 
     const state = store.getState();
     expect(state.strategyEvaluations.length).toBeGreaterThan(0);
-    expect(state.strategyEvaluations[0]).toMatchObject({
-      instanceId: expect.any(String),
-      symbol: expect.any(String),
-      totalCount: expect.any(Number),
-      passedCount: expect.any(Number),
-    });
     expect(state.strategyStates).toHaveLength(3);
   });
 

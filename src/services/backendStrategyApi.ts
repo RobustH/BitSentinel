@@ -1,0 +1,176 @@
+import type {
+  ConditionEvaluation,
+  KlinePoint,
+  MoneyFlowPoint,
+  Signal,
+  StrategyEvaluationResult,
+  StrategyInstance,
+  StrategyState,
+  TimeframeSlotKey,
+} from "../types";
+
+const BACKEND_API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+type BackendStrategyKline = {
+  symbol: string;
+  interval: string;
+  open_time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+type BackendStrategyEvaluationRequest = {
+  strategy_instances: Array<{
+    id: string;
+    name: string;
+    symbols: string[];
+    enabled: boolean;
+    condition_ids: string[];
+    risk_signal_ids: string[];
+    signal_ids_by_slot: Record<string, string[]>;
+  }>;
+  market_series: Record<string, BackendStrategyKline[]>;
+  money_flows: Array<{
+    symbol: string;
+    funding_rate: number;
+    oi_change: number;
+    taker_buy_ratio: number;
+  }>;
+  existing_signals: Array<{
+    instance_id: string;
+    symbol: string;
+    strength: Signal["strength"];
+  }>;
+};
+
+type BackendStrategyEvaluationResult = {
+  instance_id: string;
+  symbol: string;
+  state: StrategyState["state"];
+  score: number;
+  passed_count: number;
+  total_count: number;
+  should_trigger_signal: boolean;
+  next_waiting_for: string;
+  conditions: Array<{
+    id: string;
+    label: string;
+    slot_key: string | null;
+    passed: boolean;
+    score: number;
+    reason: string;
+  }>;
+};
+
+type BackendStrategyEvaluationResponse = {
+  results: BackendStrategyEvaluationResult[];
+};
+
+type FetchBackendStrategyEvaluationsInput = {
+  strategyInstances: StrategyInstance[];
+  marketSeries: Record<string, KlinePoint[]>;
+  moneyFlows: MoneyFlowPoint[];
+  signals: Signal[];
+  interval?: string;
+};
+
+const parseOpenTime = (time: string, fallbackIndex: number) => {
+  const parsed = Date.parse(time);
+  if (Number.isFinite(parsed)) return parsed;
+  return fallbackIndex;
+};
+
+const toBackendMarketSeries = (
+  marketSeries: Record<string, KlinePoint[]>,
+  interval: string,
+): Record<string, BackendStrategyKline[]> =>
+  Object.fromEntries(
+    Object.entries(marketSeries).map(([symbol, rows]) => [
+      symbol,
+      rows.map((row, index) => ({
+        symbol,
+        interval,
+        open_time: parseOpenTime(row.time, index),
+        open: row.open,
+        high: row.high,
+        low: row.low,
+        close: row.close,
+        volume: 0,
+      })),
+    ]),
+  );
+
+const toBackendRequest = ({
+  strategyInstances,
+  marketSeries,
+  moneyFlows,
+  signals,
+  interval = "1h",
+}: FetchBackendStrategyEvaluationsInput): BackendStrategyEvaluationRequest => ({
+  strategy_instances: strategyInstances.map((instance) => ({
+    id: instance.id,
+    name: instance.name,
+    symbols: instance.symbols,
+    enabled: instance.enabled,
+    condition_ids: instance.conditionIds,
+    risk_signal_ids: instance.riskSignalIds,
+    signal_ids_by_slot: instance.signalIdsBySlot as Record<string, string[]>,
+  })),
+  market_series: toBackendMarketSeries(marketSeries, interval),
+  money_flows: moneyFlows.map((flow) => ({
+    symbol: flow.symbol,
+    funding_rate: flow.fundingRate,
+    oi_change: flow.oiChange,
+    taker_buy_ratio: flow.takerBuyRatio,
+  })),
+  existing_signals: signals.map((signal) => ({
+    instance_id: signal.instanceId,
+    symbol: signal.symbol,
+    strength: signal.strength,
+  })),
+});
+
+const toSlotKey = (slotKey: string | null): TimeframeSlotKey | undefined => {
+  if (slotKey === "direction_tf" || slotKey === "structure_tf" || slotKey === "trigger_tf") return slotKey;
+  return undefined;
+};
+
+const toFrontendCondition = (condition: BackendStrategyEvaluationResult["conditions"][number]): ConditionEvaluation => ({
+  id: condition.id,
+  label: condition.label,
+  slotKey: toSlotKey(condition.slot_key),
+  passed: condition.passed,
+  score: condition.score,
+  reason: condition.reason,
+});
+
+const toFrontendResult = (row: BackendStrategyEvaluationResult): StrategyEvaluationResult => ({
+  instanceId: row.instance_id,
+  symbol: row.symbol,
+  evaluatedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+  suggestedState: row.state,
+  score: row.score,
+  passedCount: row.passed_count,
+  totalCount: row.total_count,
+  shouldTriggerSignal: row.should_trigger_signal,
+  nextWaitingFor: row.next_waiting_for,
+  conditions: row.conditions.map(toFrontendCondition),
+});
+
+export async function fetchBackendStrategyEvaluations(
+  input: FetchBackendStrategyEvaluationsInput,
+): Promise<StrategyEvaluationResult[]> {
+  const response = await fetch(`${BACKEND_API_BASE_URL}/api/strategy/evaluate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(toBackendRequest(input)),
+  });
+
+  if (!response.ok) throw new Error(`Backend strategy request failed: ${response.status}`);
+
+  const payload = (await response.json()) as BackendStrategyEvaluationResponse;
+  return payload.results.map(toFrontendResult);
+}

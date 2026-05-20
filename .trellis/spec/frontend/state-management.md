@@ -338,3 +338,60 @@ const passed = ema9 > ema21;
 // 页面只展示结果，业务判断集中在 evaluator 服务层
 evaluateStrategyMonitors();
 ```
+
+
+---
+
+## 后端策略评估接入约定
+
+### 1. Scope / Trigger
+- Trigger: 前端需要把策略监控评估迁移到 Python FastAPI `POST /api/strategy/evaluate`。
+- Scope: 只负责请求后端按需评估和把结果写回 Zustand，不实现 Worker 调度、持久化、真实通知或交易。
+
+### 2. Signatures
+- API client：`fetchBackendStrategyEvaluations({ strategyInstances, marketSeries, moneyFlows, signals, interval })`。
+- Store action：`evaluateStrategyMonitors(): Promise<void>`。
+- Backend endpoint：`POST /api/strategy/evaluate`。
+
+### 3. Contracts
+- API client 负责 DTO 转换：
+  - `strategyInstances` -> `strategy_instances`。
+  - `marketSeries` -> `market_series`，每根 K 线必须包含 `symbol`、`interval`、`open_time`、`open`、`high`、`low`、`close`、`volume`。
+  - `moneyFlows` -> `money_flows`。
+  - `signals` -> `existing_signals`，用于避免重复强信号。
+- 后端响应字段使用 snake_case，client 转换为前端 `StrategyEvaluationResult` 的 camelCase 字段。
+- `evaluateStrategyMonitors` 优先调用后端；后端不可用时可使用本地 `evaluateAllStrategyInstances` 作为原型兜底。
+- Store 统一复用 evaluation patch 逻辑更新 `strategyEvaluations`、`strategyStates`、`signals` 和 `symbols`。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 后端返回非 2xx | 抛出错误，由 store action 使用本地 evaluator 兜底 |
+| 后端结果 `slot_key` 不是已知周期槽位 | 转换为 `undefined`，不把未知字符串强写入领域类型 |
+| 前端 K 线 `time` 解析失败 | 使用稳定 fallback `open_time`，避免请求构造失败 |
+| 前端暂无 K 线 `volume` | 暂传 `0`，后续真实行情接入后补齐 |
+| 已有同策略/币种强信号 | 依赖后端 `should_trigger_signal` 和前端已有去重逻辑，不重复生成强信号 |
+
+### 5. Good/Base/Bad Cases
+- Good: 页面点击“重新计算策略”只调用 store action，store 通过 client 请求后端并写回统一状态。
+- Base: 后端未启动时页面仍通过本地 evaluator 产生可展示结果。
+- Bad: 组件直接 `fetch("/api/strategy/evaluate")`，或后端失败时清空 `strategyEvaluations` / `strategyStates`。
+
+### 6. Tests Required
+- 后端成功分支：断言 `evaluateStrategyMonitors` 调用 API client，并写入后端返回的评估结果。
+- 后端失败分支：断言 action 回退到本地 evaluator，且不合并或丢失 `strategyInstanceId + symbol` 独立状态。
+- TypeScript build 必须通过，确保 DTO 转换没有绕过领域类型。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 组件直接请求后端，失败兜底和状态同步会分散
+await fetch("/api/strategy/evaluate", { method: "POST", body: JSON.stringify(payload) });
+```
+
+#### Correct
+```typescript
+// 组件只触发 store action，API client 和兜底逻辑集中维护
+void evaluateStrategyMonitors();
+```

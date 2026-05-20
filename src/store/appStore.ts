@@ -15,6 +15,7 @@ import {
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
+import { fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -73,7 +74,7 @@ type AppState = {
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
-  evaluateStrategyMonitors: () => void;
+  evaluateStrategyMonitors: () => Promise<void>;
   startBinanceMarketStream: () => void;
   stopBinanceMarketStream: () => void;
   addSignalDefinition: () => string;
@@ -153,13 +154,18 @@ const applyTickerToKline = (series: KlinePoint[] = [], update: BinanceTickerUpda
   return next;
 };
 
-const buildEvaluationPatch = (state: AppState): Pick<AppState, "strategyEvaluations" | "strategyStates" | "signals" | "symbols"> => {
-  const evaluations = evaluateAllStrategyInstances({
+const buildLocalEvaluations = (state: AppState) =>
+  evaluateAllStrategyInstances({
     strategyInstances: state.strategyInstances,
     marketSeries: state.marketSeries,
     moneyFlows: state.moneyFlows,
     signals: state.signals,
   });
+
+const buildEvaluationPatch = (
+  state: AppState,
+  evaluations: StrategyEvaluationResult[],
+): Pick<AppState, "strategyEvaluations" | "strategyStates" | "signals" | "symbols"> => {
   const createdSignals: Signal[] = evaluations
     .filter((evaluation) => evaluation.shouldTriggerSignal)
     .map((evaluation) => {
@@ -221,13 +227,13 @@ const initialState = {
   marketSeries,
   indicatorSummaries: {},
   marketDataStatus: {
-    source: "mock",
+    source: "mock" as const,
     loading: false,
     lastUpdated: null,
     error: null,
   },
   klineRefreshStatus: {
-    source: "mock",
+    source: "mock" as const,
     loading: false,
     symbol: null,
     interval: null,
@@ -242,7 +248,7 @@ const initialState = {
     error: null,
   },
   marketStreamStatus: {
-    status: "idle",
+    status: "idle" as const,
     lastEventAt: null,
     reconnects: 0,
     endpoint: null,
@@ -294,7 +300,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           error: null,
         },
       });
-      set(buildEvaluationPatch(get()));
+      set(buildEvaluationPatch(get(), buildLocalEvaluations(get())));
     } catch (error) {
       set({
         marketDataStatus: {
@@ -332,7 +338,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           error: null,
         },
       });
-      set(buildEvaluationPatch(get()));
+      set(buildEvaluationPatch(get(), buildLocalEvaluations(get())));
     } catch (error) {
       set({
         klineRefreshStatus: {
@@ -410,7 +416,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           error: null,
         },
       });
-      set(buildEvaluationPatch(get()));
+      set(buildEvaluationPatch(get(), buildLocalEvaluations(get())));
     } catch (error) {
       set({
         marketDataStatus: {
@@ -421,8 +427,18 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
       });
     }
   },
-  evaluateStrategyMonitors: () => {
-    set(buildEvaluationPatch(get()));
+  evaluateStrategyMonitors: async () => {
+    try {
+      const evaluations = await fetchBackendStrategyEvaluations({
+        strategyInstances: get().strategyInstances,
+        marketSeries: get().marketSeries,
+        moneyFlows: get().moneyFlows,
+        signals: get().signals,
+      });
+      set(buildEvaluationPatch(get(), evaluations));
+    } catch {
+      set(buildEvaluationPatch(get(), buildLocalEvaluations(get())));
+    }
   },
   startBinanceMarketStream: () => {
     if (stopMarketStream) return;
@@ -473,7 +489,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
             error: null,
           },
         });
-        set(buildEvaluationPatch(get()));
+        set(buildEvaluationPatch(get(), buildLocalEvaluations(get())));
       },
     });
   },

@@ -387,7 +387,7 @@ function ema(values: number[], period: number) {
 }
 
 function buildReviewRecords(signals: Signal[], strategyInstances: StrategyInstance[], signalReviews: SignalReviewResult[]): ReviewRecord[] {
-  const seed: Array<Omit<ReviewRecord, "id" | "signalId" | "instanceId" | "symbol" | "strategyName" | "strategyVersion" | "direction" | "strength">> = [
+  const seed: Array<Omit<ReviewRecord, "id" | "signalId" | "instanceId" | "symbol" | "strategyVersion" | "direction" | "strength">> = [
     {
       strategyName: "三周期趋势突破",
       status: "valid",
@@ -448,6 +448,7 @@ function buildReviewRecords(signals: Signal[], strategyInstances: StrategyInstan
       : (seed[index % seed.length] ?? seed[0]);
 
     return {
+      ...baseReview,
       id: `review-${signal.id}`,
       signalId: signal.id,
       instanceId: signal.instanceId,
@@ -456,7 +457,6 @@ function buildReviewRecords(signals: Signal[], strategyInstances: StrategyInstan
       strategyVersion: signal.strategyVersion ?? strategyInstances.find((instance) => instance.id === signal.instanceId)?.version ?? 1,
       direction: signal.direction,
       strength: signal.strength,
-      ...baseReview,
       ...(savedReview
         ? {
             status: savedReview.status,
@@ -1700,7 +1700,7 @@ function StrategyMonitorCenter() {
                 <Title level={4} className="page-title">{activeInstance ? strategyDisplayName(activeInstance) : "监控中心"}</Title>
                 <Text type="secondary">查看当前策略下所有挂载币种的市场情况和状态机位置。</Text>
               </Space>
-              <Button onClick={evaluateStrategyMonitors}>重新计算策略</Button>
+              <Button onClick={() => void evaluateStrategyMonitors()}>重新计算策略</Button>
               <Select
                 value={stateFilter}
                 onChange={(value) => setStateFilter(value as typeof stateFilter)}
