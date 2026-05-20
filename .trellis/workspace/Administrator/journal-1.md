@@ -309,3 +309,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: 前端接入后端策略评估 API
+
+**Date**: 2026-05-20
+**Task**: 前端接入后端策略评估 API
+**Branch**: `main`
+
+### Summary
+
+新增前端后端策略评估 API client，将策略重新计算改为后端优先并保留本地兜底；补充 store 测试和前端状态管理规范，验证 npm test 与 build 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6c380d0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
