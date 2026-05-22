@@ -513,3 +513,57 @@ await runBackendStrategyWorkerOnceAndPersist(input);
 // Store action 运行 Worker 后立即读取数据库事实源
 void runStrategyWorkerOnceAndPersist();
 ```
+
+
+---
+
+## 后端数据库连接状态接入约定
+
+### 1. Scope / Trigger
+- Trigger: 后端提供 `GET /api/system/database/test`，前端需要展示当前数据库连接状态。
+- Scope: 只测试和展示脱敏连接状态，不编辑、不保存、不回显数据库连接串或密码。
+
+### 2. Signatures
+- API client：`fetchBackendDatabaseConnectionStatus()`。
+- Store action：`refreshDatabaseConnectionStatus(): Promise<void>`。
+- Store state：`databaseConnectionStatus`。
+- Backend endpoint：`GET /api/system/database/test`。
+
+### 3. Contracts
+- API client 只读取后端返回的 `connected`、`message`、`target`。
+- `target` 只允许展示 `driver`、`host`、`port`、`database`。
+- Store action 成功时更新连接状态、最近测试时间和脱敏目标。
+- Store action 失败时保留旧目标，只写入错误状态。
+- 页面组件只能调用 store action，不得直接 fetch。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 后端连接成功 | 显示连接正常和脱敏目标 |
+| 后端连接失败 | 显示连接失败和后端错误摘要 |
+| 请求后端失败 | 保留旧状态，显示请求错误 |
+| 响应包含敏感字段 | 前端不得展示用户名、密码或完整 URL |
+
+### 5. Good/Base/Bad Cases
+- Good: 系统设置页点击“测试连接”，展示数据库名和主机端口。
+- Base: 尚未测试时显示“未测试”。
+- Bad: 页面提供数据库密码输入框或把连接串写入 localStorage。
+
+### 6. Tests Required
+- 成功分支：断言 store 写入连接状态和脱敏目标。
+- 失败分支：断言错误写入且不清空旧目标。
+- TypeScript build 必须通过。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 前端保存数据库连接串，凭据进入浏览器环境
+localStorage.setItem("databaseUrl", databaseUrl);
+```
+
+#### Correct
+```typescript
+// 前端只触发后端测试接口并展示脱敏结果
+void refreshDatabaseConnectionStatus();
+```
