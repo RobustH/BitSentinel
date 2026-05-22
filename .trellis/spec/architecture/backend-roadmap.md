@@ -566,6 +566,76 @@ summary = repository.apply_worker_run(run_response)
 session.commit()
 ```
 
+### 策略表初始化命令契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 策略状态和信号 ORM 模型已存在，真实 PostgreSQL 需要可执行的表初始化入口，避免 `persist=true` 因表不存在失败。
+- Scope: 只初始化当前后端管理的策略持久化表，不做字段版本迁移、不做自动启动建表、不开放无认证 HTTP 建表接口。
+
+#### 2. Signatures
+
+- CLI: `python -m app.scripts.init_db`
+- Service: `initialize_database(engine, database_url)`
+- Managed table registry: `managed_table_names()`
+- ORM models:
+  - `backend/app/db/strategy.py::StrategyStateRecord`
+  - `backend/app/db/strategy.py::StrategySignalRecord`
+
+#### 3. Contracts
+
+- 命令读取后端配置 `BITSENTINEL_DATABASE_URL`。
+- 当前受管理表：
+  - `strategy_states`
+  - `strategy_signals`
+- 初始化必须幂等；重复运行不得删除数据或重建已有表。
+- 输出为 JSON：
+  - `ok`: 命令是否成功。
+  - `target`: 脱敏数据库目标，只包含 `driver`、`host`、`port`、`database`。
+  - `managed_tables`: 当前后端负责初始化的表名列表。
+  - `existing_tables`: 初始化后已存在的受管理表。
+  - `created_tables`: 本次新创建的受管理表。
+- 输出不得包含完整 database URL、用户名或密码。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 首次运行且数据库可连接 | 创建 `strategy_states`、`strategy_signals`，返回 `ok = true` |
+| 重复运行 | `created_tables = []`，保持 `ok = true` |
+| 数据库不可连接或权限不足 | 返回 `ok = false` 和错误类别摘要，进程退出码非 0 |
+| 需要从网页初始化 | 当前禁止；必须通过后端 CLI 或后续受认证管理入口执行 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 部署后先运行 `python -m app.scripts.init_db`，再启用 `persist=true`。
+- Base: 本地测试使用 SQLite 内存库验证首次创建和重复运行。
+- Bad: 应用启动时静默建表，或暴露无认证 `/api/system/database/init`。
+
+#### 6. Tests Required
+
+- 测试 `managed_table_names()` 只包含当前策略持久化表。
+- 测试首次初始化会创建两张表。
+- 测试重复初始化幂等。
+- 测试 CLI 输出 JSON 且不泄露密码。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# 应用启动时静默创建真实数据库表，部署行为不可见
+Base.metadata.create_all(bind=engine)
+```
+
+#### Correct
+
+```bash
+# 运维动作显式执行，输出脱敏结果
+python -m app.scripts.init_db
+```
+
 ## 第五阶段：回测与复盘
 
 推荐先做轻量事件回放：
