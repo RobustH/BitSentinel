@@ -641,3 +641,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: 前端Worker入库结果展示
+
+**Date**: 2026-05-23
+**Task**: 前端Worker入库结果展示
+**Branch**: `main`
+
+### Summary
+
+策略监控页展示最近一次 Worker 入库运行摘要，包括评估结果、生成信号、更新状态和插入信号数量；失败时保留上一条成功摘要。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b49f321` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
