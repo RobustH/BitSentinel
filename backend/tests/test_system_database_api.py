@@ -1,11 +1,10 @@
-from collections.abc import Generator
-
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
 
-from app.core.database import get_database_engine
+from app.core.config import Settings, get_settings
+from app.core.database import get_database_connect_args
 from app.main import create_app
 from app.services.database.connection import check_database_connection, describe_database_target
 
@@ -40,6 +39,15 @@ def test_database_connection_service_reports_success() -> None:
     assert result.target.driver == "sqlite+pysqlite"
 
 
+def test_postgresql_connection_args_use_configured_timeout() -> None:
+    settings = Settings(
+        database_url="postgresql+psycopg://bitsentinel:secret@localhost:5432/bitsentinel",
+        database_connect_timeout_seconds=3,
+    )
+
+    assert get_database_connect_args(settings) == {"connect_timeout": 3}
+
+
 class FailingEngine:
     def connect(self):
         raise OperationalError("SELECT 1", {}, RuntimeError("boom"))
@@ -59,25 +67,34 @@ def test_database_connection_service_reports_failure_without_leaking_url() -> No
     assert "secret" not in str(payload)
 
 
-def test_database_test_endpoint_uses_configured_backend_connection() -> None:
-    app = create_app()
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+def test_database_test_endpoint_uses_configured_backend_connection(monkeypatch) -> None:
+    monkeypatch.setenv("BITSENTINEL_DATABASE_URL", "sqlite+pysqlite:///:memory:")
+    get_settings.cache_clear()
 
-    def override_database_engine() -> Generator[object, None, None]:
-        yield engine
-
-    app.dependency_overrides[get_database_engine] = override_database_engine
-    try:
-        response = TestClient(app).get("/api/system/database/test")
-    finally:
-        app.dependency_overrides.clear()
+    response = TestClient(create_app()).get("/api/system/database/test")
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["connected"] is True
+    assert payload["target"]["driver"] == "sqlite+pysqlite"
     assert "password" not in str(payload).lower()
-    assert "bitsentinel:bitsentinel" not in str(payload)
+    get_settings.cache_clear()
+
+
+def test_database_test_endpoint_can_report_failure(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "BITSENTINEL_DATABASE_URL",
+        "postgresql+psycopg://postgres:secret@127.0.0.1:1/bitsentinel",
+    )
+    monkeypatch.setenv("BITSENTINEL_DATABASE_CONNECT_TIMEOUT_SECONDS", "1")
+    get_settings.cache_clear()
+
+    response = TestClient(create_app()).get("/api/system/database/test")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["connected"] is False
+    assert payload["target"]["host"] == "127.0.0.1"
+    assert "password" not in str(payload).lower()
+    assert "secret" not in str(payload)
+    get_settings.cache_clear()

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://bitsentinel:bitsentinel@localhost:5432/bitsentinel"
     )
+    database_connect_timeout_seconds: int = 5
     redis_url: str = "redis://localhost:6379/0"
 
     binance_spot_base_url: str = "https://api.binance.com"
