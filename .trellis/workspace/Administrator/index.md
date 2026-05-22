@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
+- **Total Sessions**: 14
 - **Last Active**: 2026-05-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~443 | Active |
+| `journal-1.md` | ~476 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-05-23 | Worker 持久化闭环 API | `bb350da` | `main` |
 | 13 | 2026-05-23 | 修复本地前端 CORS 配置 | `aea1b0d` | `main` |
 | 12 | 2026-05-20 | 策略状态和信号持久化原型 | `01cce59` | `main` |
 | 11 | 2026-05-20 | 后端策略 Worker 单次运行原型 | `677965d` | `main` |

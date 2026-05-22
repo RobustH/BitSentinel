@@ -441,3 +441,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: Worker 持久化闭环 API
+
+**Date**: 2026-05-23
+**Task**: Worker 持久化闭环 API
+**Branch**: `main`
+
+### Summary
+
+实现 run-once 可选持久化、状态和信号查询 API；补充 SQLite 内存库 API 测试，验证 persist=true 写入、persist=false 不写入和过滤查询；同步后端路线规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bb350da` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
