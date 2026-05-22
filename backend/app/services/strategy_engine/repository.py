@@ -5,7 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.strategy import StrategySignalRecord, StrategyStateRecord
-from app.models.strategy import StrategySignalEvent, StrategyStateEvent, StrategyWorkerRunResponse
+from app.models.strategy import (
+    PersistedStrategySignal,
+    PersistedStrategyState,
+    StrategySignalEvent,
+    StrategyStateEvent,
+    StrategyWorkerRunResponse,
+)
 
 
 @dataclass(frozen=True)
@@ -27,6 +33,53 @@ class StrategyPersistenceRepository:
             upserted_state_count=upserted_state_count,
             inserted_signal_count=inserted_signal_count,
         )
+
+    def list_states(
+        self,
+        instance_id: str | None = None,
+        symbol: str | None = None,
+    ) -> list[PersistedStrategyState]:
+        statement = select(StrategyStateRecord).order_by(StrategyStateRecord.updated_at.desc())
+        if instance_id:
+            statement = statement.where(StrategyStateRecord.strategy_instance_id == instance_id)
+        if symbol:
+            statement = statement.where(StrategyStateRecord.symbol == symbol)
+
+        return [
+            PersistedStrategyState(
+                strategy_instance_id=record.strategy_instance_id,
+                symbol=record.symbol,
+                state=record.state,
+                last_score=record.last_score,
+                next_waiting_for=record.next_waiting_for,
+                updated_at=record.updated_at.isoformat(),
+            )
+            for record in self._session.scalars(statement).all()
+        ]
+
+    def list_signals(
+        self,
+        instance_id: str | None = None,
+        symbol: str | None = None,
+    ) -> list[PersistedStrategySignal]:
+        statement = select(StrategySignalRecord).order_by(StrategySignalRecord.created_at.desc())
+        if instance_id:
+            statement = statement.where(StrategySignalRecord.strategy_instance_id == instance_id)
+        if symbol:
+            statement = statement.where(StrategySignalRecord.symbol == symbol)
+
+        return [
+            PersistedStrategySignal(
+                signal_id=record.signal_id,
+                strategy_instance_id=record.strategy_instance_id,
+                symbol=record.symbol,
+                strength=record.strength,
+                direction=record.direction,
+                reason=record.reason,
+                created_at=record.created_at.isoformat(),
+            )
+            for record in self._session.scalars(statement).all()
+        ]
 
     def _upsert_state(self, event: StrategyStateEvent) -> bool:
         record = self._session.scalar(

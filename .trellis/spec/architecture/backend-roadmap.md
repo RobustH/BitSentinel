@@ -428,6 +428,9 @@ return StrategyWorkerRunResponse(results=results, generated_signals=events)
 - ORM Base: `backend/app/db/base.py`
 - ORM models: `backend/app/db/strategy.py`
 - Repository: `StrategyPersistenceRepository(session).apply_worker_run(run_response)`
+- Persisting worker API: `POST /api/strategy/worker/run-once?persist=true`
+- State query API: `GET /api/strategy/states?instance_id=&symbol=`
+- Signal query API: `GET /api/strategy/signals?instance_id=&symbol=`
 - Input: `StrategyWorkerRunResponse`
 - Output: `StrategyPersistenceSummary`
 
@@ -451,6 +454,9 @@ return StrategyWorkerRunResponse(results=results, generated_signals=events)
   - `reason`
   - `created_at`
 - repository 只 `flush`，不隐式 `commit`；事务边界由 API、Worker 调度或调用方控制。
+- `POST /api/strategy/worker/run-once` 默认 `persist=false`，保持纯运行行为。
+- `persist=true` 时 API 层调用 repository、提交事务，并在响应中返回 `persistence` 摘要。
+- 查询 API 返回当前持久化状态和信号，可按 `instance_id`、`symbol` 过滤。
 - evaluator 和 Worker run summary 仍保持可测试边界；持久化层消费 Worker 输出，不把数据库副作用塞回 evaluator。
 
 #### 4. Validation & Error Matrix
@@ -462,6 +468,8 @@ return StrategyWorkerRunResponse(results=results, generated_signals=events)
 | 首次信号事件 | 插入 `strategy_signals` |
 | 重复 `signal_id` | 不重复插入，返回插入数为 0 |
 | 调用方需要事务提交 | 调用方显式 `commit`，repository 不自动提交 |
+| `persist=false` | 不访问持久化层，不要求数据库可用 |
+| 查询过滤无匹配记录 | 返回空列表 |
 
 #### 5. Good/Base/Bad Cases
 
@@ -472,6 +480,7 @@ return StrategyWorkerRunResponse(results=results, generated_signals=events)
 #### 6. Tests Required
 
 - repository 测试覆盖状态插入、状态更新、信号插入、重复信号幂等。
+- API 测试覆盖 `persist=true` 写入、`persist=false` 不写入、状态/信号查询过滤。
 - 测试不得依赖本地 PostgreSQL；使用 SQLite 内存数据库即可。
 - `ruff check .` 和 `pytest` 必须通过。
 

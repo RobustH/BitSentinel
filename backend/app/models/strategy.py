@@ -116,3 +116,28 @@ class StrategyWorkerRunResponse(BaseModel):
     state_events: list[StrategyStateEvent]
     generated_signals: list[StrategySignalEvent]
     results: list[StrategyEvaluationResult]
+    persistence: "StrategyPersistenceResult | None" = None
+
+
+class StrategyPersistenceResult(BaseModel):
+    upserted_state_count: int
+    inserted_signal_count: int
+
+
+class PersistedStrategyState(BaseModel):
+    strategy_instance_id: str
+    symbol: str
+    state: StrategyStateValue
+    last_score: int
+    next_waiting_for: str
+    updated_at: str
+
+
+class PersistedStrategySignal(BaseModel):
+    signal_id: str
+    strategy_instance_id: str
+    symbol: str
+    strength: SignalStrengthValue
+    direction: Literal["long", "short", "neutral"]
+    reason: str
+    created_at: str
