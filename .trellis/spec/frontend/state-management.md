@@ -468,7 +468,7 @@ void refreshPersistedStrategyData();
 
 ### 2. Signatures
 - API client：`runBackendStrategyWorkerOnceAndPersist(input)`。
-- Store action：`runStrategyWorkerOnceAndPersist(): Promise<void>`。
+- Store action：`runStrategyWorkerOnceAndPersist(): Promise<StrategyWorkerRunSummary | null>`。
 - Backend endpoint：`POST /api/strategy/worker/run-once?persist=true`。
 
 ### 3. Contracts
@@ -481,8 +481,11 @@ void refreshPersistedStrategyData();
 - `existing_states` 从当前 Zustand `strategyStates` 转换为后端 snake_case。
 - Store action 成功后必须再次调用持久化数据查询，把数据库事实源刷新回 `strategyStates` 和 `signals`。
 - Store action 成功后必须保存最近一次 Worker 运行摘要，至少包括 `runId`、评估数量、生成信号数、更新状态数、插入信号数。
+- Store action 成功时应返回本次 Worker 运行摘要，方便页面给出即时通知。
 - Store action 失败时保留现有状态和信号，只记录 `strategyPersistenceStatus.error`。
+- Store action 失败时返回 `null`，页面可据此展示失败通知。
 - Store action 失败时不得清空上一条成功 Worker 运行摘要。
+- 页面组件仍只能调用 store action；成功通知展示评估数量、更新状态数、插入信号数，失败通知展示 `strategyPersistenceStatus.error`。
 
 ### 4. Validation & Error Matrix
 | 条件 | 处理 |
@@ -500,8 +503,8 @@ void refreshPersistedStrategyData();
 
 ### 6. Tests Required
 - 成功分支：断言 Worker client 被调用，随后刷新持久化数据。
-- 成功分支：断言 store 写入最近一次 Worker 运行摘要。
-- 失败分支：断言旧状态和上一条运行摘要保留，错误写入 `strategyPersistenceStatus.error`。
+- 成功分支：断言 store 写入并返回最近一次 Worker 运行摘要。
+- 失败分支：断言返回 `null`，旧状态和上一条运行摘要保留，错误写入 `strategyPersistenceStatus.error`。
 - TypeScript build 必须通过。
 
 ### 7. Wrong vs Correct
