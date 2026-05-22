@@ -474,3 +474,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: 后端数据库连接配置与测试
+
+**Date**: 2026-05-23
+**Task**: 后端数据库连接配置与测试
+**Branch**: `main`
+
+### Summary
+
+实现后端数据库连接测试接口，读取后端 .env 数据库配置，返回脱敏连接目标；修复 HTTP 测试接口阻塞问题，改为临时诊断 engine 并增加连接超时配置。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `030c090` | (see git log) |
+| `0ffcfa1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
