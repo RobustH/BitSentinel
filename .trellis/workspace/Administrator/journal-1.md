@@ -707,3 +707,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 22: Worker运行历史落库与查询
+
+**Date**: 2026-05-23
+**Task**: Worker运行历史落库与查询
+**Branch**: `main`
+
+### Summary
+
+新增 strategy_worker_runs 表、Worker run history 查询 API，并把初始化命令和后端测试同步到新的运行历史契约。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2976818` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
