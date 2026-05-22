@@ -1740,6 +1740,18 @@ function StrategyMonitorCenter() {
             <Alert type="warning" showIcon message="后端持久化数据同步失败" description={strategyPersistenceStatus.error} />
           )}
 
+          {strategyPersistenceStatus.lastWorkerRun && (
+            <Card title="最近一次Worker入库结果">
+              <Row gutter={[12, 12]}>
+                <Col xs={12} md={6}><Statistic title="评估结果" value={strategyPersistenceStatus.lastWorkerRun.evaluatedCount} /></Col>
+                <Col xs={12} md={6}><Statistic title="生成信号" value={strategyPersistenceStatus.lastWorkerRun.generatedSignalCount} /></Col>
+                <Col xs={12} md={6}><Statistic title="更新状态" value={strategyPersistenceStatus.lastWorkerRun.upsertedStateCount} /></Col>
+                <Col xs={12} md={6}><Statistic title="插入信号" value={strategyPersistenceStatus.lastWorkerRun.insertedSignalCount} /></Col>
+              </Row>
+              <Text type="secondary">运行ID：{strategyPersistenceStatus.lastWorkerRun.runId}</Text>
+            </Card>
+          )}
+
           <Row gutter={[16, 16]}>
             <Col xs={12} md={6}><Card><Statistic title="挂载币种" value={activeSummary?.total ?? 0} /></Card></Col>
             <Col xs={12} md={6}><Card><Statistic title="等待触发" value={activeSummary?.waiting ?? 0} valueStyle={{ color: "#faad14" }} /></Card></Col>

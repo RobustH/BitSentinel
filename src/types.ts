@@ -230,6 +230,13 @@ export type StrategyPersistenceStatus = {
   loading: boolean;
   lastUpdated: string | null;
   error: string | null;
+  lastWorkerRun: {
+    runId: string;
+    evaluatedCount: number;
+    generatedSignalCount: number;
+    upsertedStateCount: number;
+    insertedSignalCount: number;
+  } | null;
 };
 
 export type DatabaseConnectionStatus = {

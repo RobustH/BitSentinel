@@ -299,17 +299,36 @@ describe("strategy assembly mock store", () => {
     });
     expect(mockedFetchBackendPersistedStrategyData).toHaveBeenCalled();
     expect(store.getState().strategyStates[0]).toMatchObject({ state: "triggered", nextWaitingFor: "Worker 已入库" });
+    expect(store.getState().strategyPersistenceStatus.lastWorkerRun).toMatchObject({
+      runId: "run-1",
+      evaluatedCount: 1,
+      generatedSignalCount: 1,
+      upsertedStateCount: 1,
+      insertedSignalCount: 1,
+    });
     expect(store.getState().strategyPersistenceStatus.error).toBeNull();
   });
 
   it("keeps existing strategy data when backend worker persistence fails", async () => {
     const store = createBitSentinelStore();
+    mockedRunBackendStrategyWorkerOnceAndPersist.mockResolvedValueOnce({
+      runId: "run-success",
+      evaluatedCount: 1,
+      generatedSignalCount: 1,
+      upsertedStateCount: 1,
+      insertedSignalCount: 1,
+    });
+    mockedFetchBackendPersistedStrategyData.mockResolvedValueOnce({ states: [], signals: [] });
+    await store.getState().runStrategyWorkerOnceAndPersist();
     const previousStates = store.getState().strategyStates;
+    const previousRun = store.getState().strategyPersistenceStatus.lastWorkerRun;
+
     mockedRunBackendStrategyWorkerOnceAndPersist.mockRejectedValue(new Error("worker unavailable"));
 
     await store.getState().runStrategyWorkerOnceAndPersist();
 
     expect(store.getState().strategyStates).toBe(previousStates);
+    expect(store.getState().strategyPersistenceStatus.lastWorkerRun).toBe(previousRun);
     expect(store.getState().strategyPersistenceStatus.error).toBe("worker unavailable");
   });
 

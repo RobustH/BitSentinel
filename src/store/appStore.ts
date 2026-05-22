@@ -282,6 +282,7 @@ const initialState = {
     loading: false,
     lastUpdated: null,
     error: null,
+    lastWorkerRun: null,
   },
   databaseConnectionStatus: {
     connected: null,
@@ -450,6 +451,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
         signals: persisted.signals,
         symbols: buildPersistedStrategySymbols(get().symbols, persisted.states),
         strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
           source: "backend",
           loading: false,
           lastUpdated: nowText(),
@@ -476,7 +478,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
     });
 
     try {
-      await runBackendStrategyWorkerOnceAndPersist({
+      const workerRun = await runBackendStrategyWorkerOnceAndPersist({
         strategyInstances: get().strategyInstances,
         marketSeries: get().marketSeries,
         moneyFlows: get().moneyFlows,
@@ -493,6 +495,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           loading: false,
           lastUpdated: nowText(),
           error: null,
+          lastWorkerRun: workerRun,
         },
       });
     } catch (error) {
