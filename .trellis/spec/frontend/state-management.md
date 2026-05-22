@@ -524,6 +524,67 @@ void runStrategyWorkerOnceAndPersist();
 
 ---
 
+## 前端读取策略 Worker 运行历史约定
+
+### 1. Scope / Trigger
+- Trigger: 后端提供 `GET /api/strategy/worker/runs`，前端需要展示最近 Worker 入库运行历史。
+- Scope: 只做手动刷新和运行成功后的自动刷新，不做分页、轮询或历史详情页。
+
+### 2. Signatures
+- API client：`fetchBackendStrategyWorkerRuns(limit)`。
+- Store action：`refreshWorkerRunHistory(): Promise<void>`。
+- Store state：`strategyPersistenceStatus.workerRunHistory: StrategyWorkerRunSummary[]`。
+- Backend endpoint：`GET /api/strategy/worker/runs?limit=10`。
+
+### 3. Contracts
+- API client 负责 DTO 转换：
+  - `run_id` -> `runId`
+  - `ran_at` -> `ranAt`
+  - `evaluated_count` -> `evaluatedCount`
+  - `generated_signal_count` -> `generatedSignalCount`
+  - `upserted_state_count` -> `upsertedStateCount`
+  - `inserted_signal_count` -> `insertedSignalCount`
+- Store action 成功时写入 `workerRunHistory`，并标记 `source = backend`。
+- Store action 失败时保留旧历史列表，只写入 `strategyPersistenceStatus.error`。
+- `runStrategyWorkerOnceAndPersist` 成功后应刷新运行历史，让页面能看到刚完成的后端事实记录。
+- 组件只能调用 store action，不得直接请求 `/api/strategy/worker/runs`。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 后端返回空数组 | 展示空历史，不视为错误 |
+| 后端返回非 2xx | 保留旧历史，写入错误状态 |
+| 运行 Worker 成功 | 先刷新持久化状态和信号，再刷新运行历史 |
+| 运行历史刷新失败 | 不清空最近一次 Worker 摘要或旧历史 |
+
+### 5. Good/Base/Bad Cases
+- Good: 策略监控页展示 `workerRunHistory` 表格，并通过按钮调用 `refreshWorkerRunHistory`。
+- Base: 真实库暂无历史时页面展示可解释空态。
+- Bad: 组件直接 `fetch("/api/strategy/worker/runs")`，或失败时清空旧历史列表。
+
+### 6. Tests Required
+- 成功分支：断言 store 调用 API client，并写入运行历史。
+- 失败分支：断言旧历史列表保留，错误写入 `strategyPersistenceStatus.error`。
+- Worker 入库成功分支：断言成功后刷新运行历史。
+- TypeScript build 必须通过。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 组件直接请求后端，状态和失败兜底会散落
+const runs = await fetch("/api/strategy/worker/runs");
+```
+
+#### Correct
+```typescript
+// 组件只触发 store action
+void refreshWorkerRunHistory();
+```
+
+
+---
+
 ## 后端数据库连接状态接入约定
 
 ### 1. Scope / Trigger
