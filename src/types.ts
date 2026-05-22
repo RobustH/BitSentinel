@@ -232,6 +232,20 @@ export type StrategyPersistenceStatus = {
   error: string | null;
 };
 
+export type DatabaseConnectionStatus = {
+  connected: boolean | null;
+  loading: boolean;
+  lastCheckedAt: string | null;
+  error: string | null;
+  message: string | null;
+  target: {
+    driver: string;
+    host: string | null;
+    port: number | null;
+    database: string | null;
+  } | null;
+};
+
 export type MarketStreamStatus = {
   status: "idle" | "connecting" | "connected" | "disconnected" | "error";
   lastEventAt: string | null;

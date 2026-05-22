@@ -3352,6 +3352,7 @@ function DataWarehouse() {
 }
 
 function SettingsPage() {
+  const { databaseConnectionStatus, refreshDatabaseConnectionStatus } = useAppStore();
   const settings = [
     ["交易所配置", "Binance Futures，只读 API Key，后端加密保存。"],
     ["推送配置", "强信号即时推送，观察信号进入队列，重复信号静默。"],
@@ -3360,15 +3361,45 @@ function SettingsPage() {
   ];
 
   return (
-    <Row gutter={[16, 16]}>
-      {settings.map(([title, desc]) => (
-        <Col xs={24} md={12} key={title}>
-          <Card title={title}>
-            <Paragraph type="secondary">{desc}</Paragraph>
-          </Card>
-        </Col>
-      ))}
-    </Row>
+    <Space direction="vertical" size={16} className="page-stack">
+      <Card
+        title="数据库连接"
+        extra={
+          <Button loading={databaseConnectionStatus.loading} icon={<Database size={16} />} onClick={() => void refreshDatabaseConnectionStatus()}>
+            测试连接
+          </Button>
+        }
+      >
+        <Descriptions column={{ xs: 1, md: 4 }} size="small">
+          <Descriptions.Item label="状态">
+            {databaseConnectionStatus.connected === null ? (
+              <Tag>未测试</Tag>
+            ) : (
+              <Tag color={databaseConnectionStatus.connected ? "green" : "red"}>
+                {databaseConnectionStatus.connected ? "连接正常" : "连接失败"}
+              </Tag>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label="驱动">{databaseConnectionStatus.target?.driver ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="主机">{databaseConnectionStatus.target?.host ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="端口">{databaseConnectionStatus.target?.port ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="数据库">{databaseConnectionStatus.target?.database ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="最近测试">{databaseConnectionStatus.lastCheckedAt ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="结果" span={2}>{databaseConnectionStatus.message ?? databaseConnectionStatus.error ?? "-"}</Descriptions.Item>
+        </Descriptions>
+        {databaseConnectionStatus.error && <Alert className="section-alert" type="warning" showIcon message="数据库连接测试失败" description={databaseConnectionStatus.error} />}
+      </Card>
+
+      <Row gutter={[16, 16]}>
+        {settings.map(([title, desc]) => (
+          <Col xs={24} md={12} key={title}>
+            <Card title={title}>
+              <Paragraph type="secondary">{desc}</Paragraph>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    </Space>
   );
 }
 

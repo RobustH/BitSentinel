@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations, runBackendStrategyWorkerOnceAndPersist } from "../services/backendStrategyApi";
+import { fetchBackendDatabaseConnectionStatus } from "../services/backendSystemApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
@@ -15,11 +16,16 @@ vi.mock("../services/backendStrategyApi", () => ({
   runBackendStrategyWorkerOnceAndPersist: vi.fn(),
 }));
 
+vi.mock("../services/backendSystemApi", () => ({
+  fetchBackendDatabaseConnectionStatus: vi.fn(),
+}));
+
 const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummary);
 const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedStrategyData);
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
+const mockedFetchBackendDatabaseConnectionStatus = vi.mocked(fetchBackendDatabaseConnectionStatus);
 const mockedRunBackendStrategyWorkerOnceAndPersist = vi.mocked(runBackendStrategyWorkerOnceAndPersist);
 
 describe("strategy assembly mock store", () => {
@@ -29,6 +35,7 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendMarketTickers.mockReset();
     mockedFetchBackendPersistedStrategyData.mockReset();
     mockedFetchBackendStrategyEvaluations.mockReset();
+    mockedFetchBackendDatabaseConnectionStatus.mockReset();
     mockedRunBackendStrategyWorkerOnceAndPersist.mockReset();
   });
 
@@ -304,5 +311,41 @@ describe("strategy assembly mock store", () => {
 
     expect(store.getState().strategyStates).toBe(previousStates);
     expect(store.getState().strategyPersistenceStatus.error).toBe("worker unavailable");
+  });
+
+  it("refreshes backend database connection status", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendDatabaseConnectionStatus.mockResolvedValue({
+      connected: true,
+      loading: false,
+      lastCheckedAt: "2026-05-23 10:20:00",
+      error: null,
+      message: "Database connection succeeded",
+      target: {
+        driver: "postgresql+psycopg",
+        host: "159.75.180.231",
+        port: 35432,
+        database: "bitsentinel",
+      },
+    });
+
+    await store.getState().refreshDatabaseConnectionStatus();
+
+    expect(mockedFetchBackendDatabaseConnectionStatus).toHaveBeenCalled();
+    expect(store.getState().databaseConnectionStatus).toMatchObject({
+      connected: true,
+      error: null,
+      target: { database: "bitsentinel" },
+    });
+  });
+
+  it("keeps previous database connection target when refresh fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendDatabaseConnectionStatus.mockRejectedValue(new Error("database unavailable"));
+
+    await store.getState().refreshDatabaseConnectionStatus();
+
+    expect(store.getState().databaseConnectionStatus.connected).toBeNull();
+    expect(store.getState().databaseConnectionStatus.error).toBe("database unavailable");
   });
 });

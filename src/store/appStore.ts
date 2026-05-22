@@ -16,6 +16,7 @@ import {
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations, runBackendStrategyWorkerOnceAndPersist } from "../services/backendStrategyApi";
+import { fetchBackendDatabaseConnectionStatus } from "../services/backendSystemApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -23,6 +24,7 @@ import type {
   BacktestSnapshot,
   BinanceTickerUpdate,
   CreateStrategyPayload,
+  DatabaseConnectionStatus,
   AlertRule,
   KlinePoint,
   KlineRefreshStatus,
@@ -69,6 +71,7 @@ type AppState = {
   klineRefreshStatus: KlineRefreshStatus;
   indicatorRefreshStatus: IndicatorRefreshStatus;
   strategyPersistenceStatus: StrategyPersistenceStatus;
+  databaseConnectionStatus: DatabaseConnectionStatus;
   marketStreamStatus: MarketStreamStatus;
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
@@ -77,6 +80,7 @@ type AppState = {
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshPersistedStrategyData: () => Promise<void>;
   runStrategyWorkerOnceAndPersist: () => Promise<void>;
+  refreshDatabaseConnectionStatus: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => Promise<void>;
   startBinanceMarketStream: () => void;
@@ -278,6 +282,14 @@ const initialState = {
     loading: false,
     lastUpdated: null,
     error: null,
+  },
+  databaseConnectionStatus: {
+    connected: null,
+    loading: false,
+    lastCheckedAt: null,
+    error: null,
+    message: null,
+    target: null,
   },
   marketStreamStatus: {
     status: "idle" as const,
@@ -489,6 +501,28 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           ...get().strategyPersistenceStatus,
           loading: false,
           error: error instanceof Error ? error.message : "后端策略 Worker 运行失败",
+        },
+      });
+    }
+  },
+  refreshDatabaseConnectionStatus: async () => {
+    set({
+      databaseConnectionStatus: {
+        ...get().databaseConnectionStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const status = await fetchBackendDatabaseConnectionStatus();
+      set({ databaseConnectionStatus: status });
+    } catch (error) {
+      set({
+        databaseConnectionStatus: {
+          ...get().databaseConnectionStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端数据库连接测试失败",
         },
       });
     }
