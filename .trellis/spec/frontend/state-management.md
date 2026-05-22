@@ -456,3 +456,60 @@ const states = await fetch("/api/strategy/states");
 // 组件只触发 store action，转换和失败保留逻辑集中维护
 void refreshPersistedStrategyData();
 ```
+
+
+---
+
+## 前端触发策略 Worker 持久化约定
+
+### 1. Scope / Trigger
+- Trigger: 用户需要从前端手动触发后端策略 Worker 单次运行，并将结果写入真实数据库。
+- Scope: 只做手动 `run-once?persist=true`，不做后台调度、轮询或推送。
+
+### 2. Signatures
+- API client：`runBackendStrategyWorkerOnceAndPersist(input)`。
+- Store action：`runStrategyWorkerOnceAndPersist(): Promise<void>`。
+- Backend endpoint：`POST /api/strategy/worker/run-once?persist=true`。
+
+### 3. Contracts
+- API client 请求必须包含：
+  - `strategy_instances`
+  - `market_series`
+  - `money_flows`
+  - `existing_signals`
+  - `existing_states`
+- `existing_states` 从当前 Zustand `strategyStates` 转换为后端 snake_case。
+- Store action 成功后必须再次调用持久化数据查询，把数据库事实源刷新回 `strategyStates` 和 `signals`。
+- Store action 失败时保留现有状态和信号，只记录 `strategyPersistenceStatus.error`。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| Worker 运行成功且持久化成功 | 刷新真实库快照并标记 `source = backend` |
+| Worker 请求失败 | 保留旧数据，记录错误 |
+| Worker 成功但后续刷新失败 | 保留旧数据，记录错误 |
+| 当前已有强信号 | 后端负责去重，前端只提交 `existing_signals` |
+
+### 5. Good/Base/Bad Cases
+- Good: 策略监控页点击“运行Worker并入库”，随后页面展示真实库状态。
+- Base: 没有新信号时仍会更新当前策略状态。
+- Bad: 组件直接拼 DTO fetch，或只运行 Worker 不刷新数据库事实源。
+
+### 6. Tests Required
+- 成功分支：断言 Worker client 被调用，随后刷新持久化数据。
+- 失败分支：断言旧状态保留，错误写入 `strategyPersistenceStatus.error`。
+- TypeScript build 必须通过。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 只运行 Worker，不刷新真实库快照，页面仍旧
+await runBackendStrategyWorkerOnceAndPersist(input);
+```
+
+#### Correct
+```typescript
+// Store action 运行 Worker 后立即读取数据库事实源
+void runStrategyWorkerOnceAndPersist();
+```
