@@ -674,3 +674,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: 前端Worker入库反馈通知
+
+**Date**: 2026-05-23
+**Task**: 前端Worker入库反馈通知
+**Branch**: `main`
+
+### Summary
+
+运行Worker并入库后根据 action 返回摘要弹出成功通知，失败时弹错误通知且保留上一条成功摘要。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1eaee8a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
