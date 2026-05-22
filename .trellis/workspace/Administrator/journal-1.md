@@ -575,3 +575,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: 前端触发策略Worker持久化
+
+**Date**: 2026-05-23
+**Task**: 前端触发策略Worker持久化
+**Branch**: `main`
+
+### Summary
+
+前端新增策略 Worker run-once persist 调用，Zustand action 可运行 Worker 并刷新真实库策略状态和信号。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f7248a6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
