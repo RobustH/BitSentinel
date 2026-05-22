@@ -46,6 +46,14 @@ type BackendStrategyEvaluationRequest = {
   }>;
 };
 
+type BackendStrategyWorkerRunRequest = BackendStrategyEvaluationRequest & {
+  existing_states: Array<{
+    instance_id: string;
+    symbol: string;
+    state: StrategyState["state"];
+  }>;
+};
+
 type BackendStrategyEvaluationResult = {
   instance_id: string;
   symbol: string;
@@ -67,6 +75,16 @@ type BackendStrategyEvaluationResult = {
 
 type BackendStrategyEvaluationResponse = {
   results: BackendStrategyEvaluationResult[];
+};
+
+type BackendStrategyWorkerRunResponse = {
+  run_id: string;
+  evaluated_count: number;
+  generated_signal_count: number;
+  persistence: {
+    upserted_state_count: number;
+    inserted_signal_count: number;
+  } | null;
 };
 
 type BackendPersistedStrategyState = {
@@ -94,6 +112,18 @@ type FetchBackendStrategyEvaluationsInput = {
   moneyFlows: MoneyFlowPoint[];
   signals: Signal[];
   interval?: string;
+};
+
+type RunBackendStrategyWorkerInput = FetchBackendStrategyEvaluationsInput & {
+  strategyStates: StrategyState[];
+};
+
+type BackendStrategyWorkerRunSummary = {
+  runId: string;
+  evaluatedCount: number;
+  generatedSignalCount: number;
+  upsertedStateCount: number;
+  insertedSignalCount: number;
 };
 
 type BackendPersistedStrategyData = {
@@ -163,6 +193,15 @@ const toBackendRequest = ({
   })),
 });
 
+const toBackendWorkerRequest = (input: RunBackendStrategyWorkerInput): BackendStrategyWorkerRunRequest => ({
+  ...toBackendRequest(input),
+  existing_states: input.strategyStates.map((state) => ({
+    instance_id: state.instanceId,
+    symbol: state.symbol,
+    state: state.state,
+  })),
+});
+
 const toSlotKey = (slotKey: string | null): TimeframeSlotKey | undefined => {
   if (slotKey === "direction_tf" || slotKey === "structure_tf" || slotKey === "trigger_tf") return slotKey;
   return undefined;
@@ -223,6 +262,27 @@ export async function fetchBackendStrategyEvaluations(
 
   const payload = (await response.json()) as BackendStrategyEvaluationResponse;
   return payload.results.map(toFrontendResult);
+}
+
+export async function runBackendStrategyWorkerOnceAndPersist(
+  input: RunBackendStrategyWorkerInput,
+): Promise<BackendStrategyWorkerRunSummary> {
+  const response = await fetch(`${BACKEND_API_BASE_URL}/api/strategy/worker/run-once?persist=true`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(toBackendWorkerRequest(input)),
+  });
+
+  if (!response.ok) throw new Error(`Backend strategy worker request failed: ${response.status}`);
+
+  const payload = (await response.json()) as BackendStrategyWorkerRunResponse;
+  return {
+    runId: payload.run_id,
+    evaluatedCount: payload.evaluated_count,
+    generatedSignalCount: payload.generated_signal_count,
+    upsertedStateCount: payload.persistence?.upserted_state_count ?? 0,
+    insertedSignalCount: payload.persistence?.inserted_signal_count ?? 0,
+  };
 }
 
 export async function fetchBackendPersistedStrategyStates(): Promise<StrategyState[]> {

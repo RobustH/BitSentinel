@@ -15,7 +15,7 @@ import {
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
-import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
+import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations, runBackendStrategyWorkerOnceAndPersist } from "../services/backendStrategyApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -76,6 +76,7 @@ type AppState = {
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshPersistedStrategyData: () => Promise<void>;
+  runStrategyWorkerOnceAndPersist: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => Promise<void>;
   startBinanceMarketStream: () => void;
@@ -449,6 +450,45 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           ...get().strategyPersistenceStatus,
           loading: false,
           error: error instanceof Error ? error.message : "后端持久化策略数据刷新失败",
+        },
+      });
+    }
+  },
+  runStrategyWorkerOnceAndPersist: async () => {
+    set({
+      strategyPersistenceStatus: {
+        ...get().strategyPersistenceStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      await runBackendStrategyWorkerOnceAndPersist({
+        strategyInstances: get().strategyInstances,
+        marketSeries: get().marketSeries,
+        moneyFlows: get().moneyFlows,
+        signals: get().signals,
+        strategyStates: get().strategyStates,
+      });
+      const persisted = await fetchBackendPersistedStrategyData();
+      set({
+        strategyStates: persisted.states,
+        signals: persisted.signals,
+        symbols: buildPersistedStrategySymbols(get().symbols, persisted.states),
+        strategyPersistenceStatus: {
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: null,
+        },
+      });
+    } catch (error) {
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端策略 Worker 运行失败",
         },
       });
     }

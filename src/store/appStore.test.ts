@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
-import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
+import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations, runBackendStrategyWorkerOnceAndPersist } from "../services/backendStrategyApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
@@ -12,6 +12,7 @@ vi.mock("../services/backendMarketApi", () => ({
 vi.mock("../services/backendStrategyApi", () => ({
   fetchBackendPersistedStrategyData: vi.fn(),
   fetchBackendStrategyEvaluations: vi.fn(),
+  runBackendStrategyWorkerOnceAndPersist: vi.fn(),
 }));
 
 const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummary);
@@ -19,6 +20,7 @@ const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedStrategyData);
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
+const mockedRunBackendStrategyWorkerOnceAndPersist = vi.mocked(runBackendStrategyWorkerOnceAndPersist);
 
 describe("strategy assembly mock store", () => {
   beforeEach(() => {
@@ -27,6 +29,7 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendMarketTickers.mockReset();
     mockedFetchBackendPersistedStrategyData.mockReset();
     mockedFetchBackendStrategyEvaluations.mockReset();
+    mockedRunBackendStrategyWorkerOnceAndPersist.mockReset();
   });
 
   it("creates a strategy instance and independent states for every mounted symbol", () => {
@@ -254,5 +257,52 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().signals).toBe(previousSignals);
     expect(store.getState().strategyPersistenceStatus.error).toBe("persistence unavailable");
     expect(store.getState().strategyPersistenceStatus.source).toBe("mock");
+  });
+
+  it("runs backend strategy worker with persistence and refreshes persisted data", async () => {
+    const store = createBitSentinelStore();
+    mockedRunBackendStrategyWorkerOnceAndPersist.mockResolvedValue({
+      runId: "run-1",
+      evaluatedCount: 1,
+      generatedSignalCount: 1,
+      upsertedStateCount: 1,
+      insertedSignalCount: 1,
+    });
+    mockedFetchBackendPersistedStrategyData.mockResolvedValue({
+      states: [
+        {
+          instanceId: "inst-ma-btc",
+          symbol: "BTCUSDT",
+          state: "triggered",
+          lastUpdated: "2026-05-23T10:10:00Z",
+          nextWaitingFor: "Worker 已入库",
+        },
+      ],
+      signals: [],
+    });
+
+    await store.getState().runStrategyWorkerOnceAndPersist();
+
+    expect(mockedRunBackendStrategyWorkerOnceAndPersist).toHaveBeenCalledWith({
+      strategyInstances: expect.any(Array),
+      marketSeries: expect.any(Object),
+      moneyFlows: expect.any(Array),
+      signals: expect.any(Array),
+      strategyStates: expect.any(Array),
+    });
+    expect(mockedFetchBackendPersistedStrategyData).toHaveBeenCalled();
+    expect(store.getState().strategyStates[0]).toMatchObject({ state: "triggered", nextWaitingFor: "Worker 已入库" });
+    expect(store.getState().strategyPersistenceStatus.error).toBeNull();
+  });
+
+  it("keeps existing strategy data when backend worker persistence fails", async () => {
+    const store = createBitSentinelStore();
+    const previousStates = store.getState().strategyStates;
+    mockedRunBackendStrategyWorkerOnceAndPersist.mockRejectedValue(new Error("worker unavailable"));
+
+    await store.getState().runStrategyWorkerOnceAndPersist();
+
+    expect(store.getState().strategyStates).toBe(previousStates);
+    expect(store.getState().strategyPersistenceStatus.error).toBe("worker unavailable");
   });
 });

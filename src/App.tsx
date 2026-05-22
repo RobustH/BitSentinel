@@ -1552,6 +1552,7 @@ function StrategyMonitorCenter() {
     strategyPersistenceStatus,
     evaluateStrategyMonitors,
     refreshPersistedStrategyData,
+    runStrategyWorkerOnceAndPersist,
     triggerMockSignal,
     selectSignal,
   } = useAppStore();
@@ -1717,6 +1718,9 @@ function StrategyMonitorCenter() {
               <Space>
                 <Button loading={strategyPersistenceStatus.loading} icon={<RefreshCw size={16} />} onClick={() => void refreshPersistedStrategyData()}>
                   同步后端持久化
+                </Button>
+                <Button type="primary" loading={strategyPersistenceStatus.loading} icon={<Cpu size={16} />} onClick={() => void runStrategyWorkerOnceAndPersist()}>
+                  运行Worker并入库
                 </Button>
                 <Button onClick={() => void evaluateStrategyMonitors()}>重新计算策略</Button>
               </Space>
