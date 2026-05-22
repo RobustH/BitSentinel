@@ -395,3 +395,64 @@ await fetch("/api/strategy/evaluate", { method: "POST", body: JSON.stringify(pay
 // 组件只触发 store action，API client 和兜底逻辑集中维护
 void evaluateStrategyMonitors();
 ```
+
+
+---
+
+## 后端策略持久化数据接入约定
+
+### 1. Scope / Trigger
+- Trigger: 后端已提供 `GET /api/strategy/states` 和 `GET /api/strategy/signals`，前端需要读取真实数据库中的策略状态和信号。
+- Scope: 只做手动刷新和 Zustand 写入，不做 Worker 调度、轮询、WebSocket/SSE 自动推送或持久化写入。
+
+### 2. Signatures
+- API client：`fetchBackendPersistedStrategyData()`。
+- Store action：`refreshPersistedStrategyData(): Promise<void>`。
+- Store state：`strategyPersistenceStatus`，记录 `source`、`loading`、`lastUpdated`、`error`。
+- Backend endpoints：
+  - `GET /api/strategy/states`
+  - `GET /api/strategy/signals`
+
+### 3. Contracts
+- API client 负责 DTO 转换：
+  - `strategy_instance_id` -> `instanceId`
+  - `next_waiting_for` -> `nextWaitingFor`
+  - `updated_at` -> `lastUpdated`
+  - `signal_id` -> `id`
+  - `created_at` -> `createdAt`
+- Store action 成功时把后端状态写入 `strategyStates`，把后端信号写入 `signals`。
+- Store action 成功时同步更新 `symbols.status`：存在 triggered 状态的币种标为 `alert`，watching / waiting_trigger 标为 `watching`。
+- Store action 失败时保留现有 `strategyStates` 和 `signals`，只写入错误状态。
+- 组件只能调用 store action，不得直接请求后端持久化 API。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 后端返回空数组 | 前端状态同步为空，表示真实库当前无记录 |
+| 后端返回非 2xx | 保留旧数据，写入 `strategyPersistenceStatus.error` |
+| 后端返回未知字段 | API client 只读取契约字段，不把原始 DTO 直接写入 store |
+| 后端信号 strength 为 `invalidated` | 前端 `Signal["strength"]` 必须支持并显示为失效状态 |
+
+### 5. Good/Base/Bad Cases
+- Good: 数据仓或策略监控页点击按钮，调用 `refreshPersistedStrategyData`，成功显示真实库快照。
+- Base: 真实库暂无策略记录时页面显示空状态，但状态来源标记为后端。
+- Bad: 组件直接 `fetch("/api/strategy/states")`，或者同步失败时清空现有 mock 数据。
+
+### 6. Tests Required
+- 成功分支：断言 store 调用 API client，并写入后端状态和信号。
+- 失败分支：断言旧状态/信号对象保留，错误写入 `strategyPersistenceStatus.error`。
+- TypeScript build 必须通过，确保 DTO 转换没有绕过领域类型。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 组件直接请求，失败兜底和 DTO 转换会散落
+const states = await fetch("/api/strategy/states");
+```
+
+#### Correct
+```typescript
+// 组件只触发 store action，转换和失败保留逻辑集中维护
+void refreshPersistedStrategyData();
+```
