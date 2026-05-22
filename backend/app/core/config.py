@@ -7,7 +7,10 @@ class Settings(BaseSettings):
     app_name: str = "BitSentinel API"
     environment: str = "local"
     api_prefix: str = "/api"
-    cors_origins: str = "http://localhost:5176,http://127.0.0.1:5176"
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5176,http://127.0.0.1:5176"
+    )
 
     database_url: str = (
         "postgresql+psycopg://bitsentinel:bitsentinel@localhost:5432/bitsentinel"
