@@ -56,11 +56,15 @@ def test_worker_run_once_can_persist_events(client: TestClient) -> None:
 
     states_response = client.get("/api/strategy/states")
     signals_response = client.get("/api/strategy/signals")
+    runs_response = client.get("/api/strategy/worker/runs")
 
     assert states_response.status_code == 200
     assert states_response.json()[0]["state"] == "triggered"
     assert signals_response.status_code == 200
     assert signals_response.json()[0]["strength"] == "strong"
+    assert runs_response.status_code == 200
+    assert runs_response.json()[0]["evaluated_count"] == payload["evaluated_count"]
+    assert runs_response.json()[0]["upserted_state_count"] == 1
 
 
 def test_worker_run_once_without_persist_does_not_write_events(client: TestClient) -> None:
@@ -73,6 +77,7 @@ def test_worker_run_once_without_persist_does_not_write_events(client: TestClien
     assert response.json()["persistence"] is None
     assert client.get("/api/strategy/states").json() == []
     assert client.get("/api/strategy/signals").json() == []
+    assert client.get("/api/strategy/worker/runs").json() == []
 
 
 def test_strategy_persistence_queries_can_filter_by_instance_and_symbol(
@@ -97,3 +102,21 @@ def test_strategy_persistence_queries_can_filter_by_instance_and_symbol(
     assert len(matching_states) == 1
     assert missing_states == []
     assert len(matching_signals) == 1
+
+
+def test_strategy_worker_run_history_limit(client: TestClient) -> None:
+    first_response = client.post(
+        "/api/strategy/worker/run-once?persist=true",
+        json=_request().model_dump(),
+    )
+    second_response = client.post(
+        "/api/strategy/worker/run-once?persist=true",
+        json=_request().model_dump(),
+    )
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+
+    runs = client.get("/api/strategy/worker/runs?limit=1").json()
+
+    assert len(runs) == 1
+    assert runs[0]["run_id"] == second_response.json()["run_id"]

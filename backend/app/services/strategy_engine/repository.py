@@ -4,10 +4,11 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.strategy import StrategySignalRecord, StrategyStateRecord
+from app.db.strategy import StrategySignalRecord, StrategyStateRecord, StrategyWorkerRunRecord
 from app.models.strategy import (
     PersistedStrategySignal,
     PersistedStrategyState,
+    PersistedStrategyWorkerRun,
     StrategySignalEvent,
     StrategyStateEvent,
     StrategyWorkerRunResponse,
@@ -28,6 +29,11 @@ class StrategyPersistenceRepository:
         upserted_state_count = sum(1 for event in run.state_events if self._upsert_state(event))
         inserted_signal_count = sum(
             1 for event in run.generated_signals if self._insert_signal(event)
+        )
+        self._upsert_worker_run(
+            run=run,
+            upserted_state_count=upserted_state_count,
+            inserted_signal_count=inserted_signal_count,
         )
         return StrategyPersistenceSummary(
             upserted_state_count=upserted_state_count,
@@ -81,6 +87,25 @@ class StrategyPersistenceRepository:
             for record in self._session.scalars(statement).all()
         ]
 
+    def list_worker_runs(self, limit: int = 20) -> list[PersistedStrategyWorkerRun]:
+        statement = (
+            select(StrategyWorkerRunRecord)
+            .order_by(StrategyWorkerRunRecord.ran_at.desc())
+            .limit(limit)
+        )
+
+        return [
+            PersistedStrategyWorkerRun(
+                run_id=record.run_id,
+                ran_at=record.ran_at.isoformat(),
+                evaluated_count=record.evaluated_count,
+                generated_signal_count=record.generated_signal_count,
+                upserted_state_count=record.upserted_state_count,
+                inserted_signal_count=record.inserted_signal_count,
+            )
+            for record in self._session.scalars(statement).all()
+        ]
+
     def _upsert_state(self, event: StrategyStateEvent) -> bool:
         record = self._session.scalar(
             select(StrategyStateRecord).where(
@@ -130,6 +155,38 @@ class StrategyPersistenceRepository:
         )
         self._session.flush()
         return True
+
+    def _upsert_worker_run(
+        self,
+        *,
+        run: StrategyWorkerRunResponse,
+        upserted_state_count: int,
+        inserted_signal_count: int,
+    ) -> None:
+        record = self._session.scalar(
+            select(StrategyWorkerRunRecord).where(StrategyWorkerRunRecord.run_id == run.run_id)
+        )
+        ran_at = _parse_datetime(run.ran_at)
+        if record is None:
+            self._session.add(
+                StrategyWorkerRunRecord(
+                    run_id=run.run_id,
+                    ran_at=ran_at,
+                    evaluated_count=run.evaluated_count,
+                    generated_signal_count=run.generated_signal_count,
+                    upserted_state_count=upserted_state_count,
+                    inserted_signal_count=inserted_signal_count,
+                )
+            )
+            self._session.flush()
+            return
+
+        record.ran_at = ran_at
+        record.evaluated_count = run.evaluated_count
+        record.generated_signal_count = run.generated_signal_count
+        record.upserted_state_count = upserted_state_count
+        record.inserted_signal_count = inserted_signal_count
+        self._session.flush()
 
 
 def _parse_datetime(value: str) -> datetime:

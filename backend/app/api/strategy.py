@@ -1,12 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db_session
 from app.models.strategy import (
     PersistedStrategySignal,
     PersistedStrategyState,
+    PersistedStrategyWorkerRun,
     StrategyEvaluationRequest,
     StrategyEvaluationResponse,
     StrategyPersistenceResult,
@@ -63,3 +64,11 @@ def list_strategy_signals(
     symbol: str | None = None,
 ) -> list[PersistedStrategySignal]:
     return StrategyPersistenceRepository(db).list_signals(instance_id=instance_id, symbol=symbol)
+
+
+@router.get("/worker/runs", response_model=list[PersistedStrategyWorkerRun])
+def list_strategy_worker_runs(
+    db: DbSessionDep,
+    limit: int = Query(default=20, ge=1, le=100),
+) -> list[PersistedStrategyWorkerRun]:
+    return StrategyPersistenceRepository(db).list_worker_runs(limit=limit)

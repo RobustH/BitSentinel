@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
-from app.db.strategy import StrategySignalRecord, StrategyStateRecord
+from app.db.strategy import StrategySignalRecord, StrategyStateRecord, StrategyWorkerRunRecord
 from app.models.strategy import (
     StrategySignalEvent,
     StrategyStateEvent,
@@ -19,12 +19,14 @@ def _session() -> Session:
 
 def _worker_run(
     *,
+    run_id: str = "run-1",
+    ran_at: str = "2026-05-20T09:00:00+00:00",
     state: str = "watching",
     signal_id: str = "sig-1",
 ) -> StrategyWorkerRunResponse:
     return StrategyWorkerRunResponse(
-        run_id="run-1",
-        ran_at="2026-05-20T09:00:00+00:00",
+        run_id=run_id,
+        ran_at=ran_at,
         evaluated_count=1,
         generated_signal_count=1,
         state_events=[
@@ -102,3 +104,47 @@ def test_apply_worker_run_does_not_duplicate_signal_records() -> None:
     signals = session.scalars(select(StrategySignalRecord)).all()
     assert summary.inserted_signal_count == 0
     assert len(signals) == 1
+
+
+def test_apply_worker_run_records_run_history() -> None:
+    session = _session()
+    repository = StrategyPersistenceRepository(session)
+
+    summary = repository.apply_worker_run(_worker_run())
+
+    runs = session.scalars(select(StrategyWorkerRunRecord)).all()
+    assert len(runs) == 1
+    assert runs[0].run_id == "run-1"
+    assert runs[0].evaluated_count == 1
+    assert runs[0].generated_signal_count == 1
+    assert runs[0].upserted_state_count == summary.upserted_state_count
+    assert runs[0].inserted_signal_count == summary.inserted_signal_count
+
+
+def test_apply_worker_run_updates_existing_run_history_by_run_id() -> None:
+    session = _session()
+    repository = StrategyPersistenceRepository(session)
+
+    repository.apply_worker_run(_worker_run(run_id="run-1", signal_id="sig-1"))
+    repository.apply_worker_run(_worker_run(run_id="run-1", signal_id="sig-1", state="triggered"))
+
+    runs = session.scalars(select(StrategyWorkerRunRecord)).all()
+    assert len(runs) == 1
+    assert runs[0].inserted_signal_count == 0
+
+
+def test_list_worker_runs_returns_recent_runs_first_with_limit() -> None:
+    session = _session()
+    repository = StrategyPersistenceRepository(session)
+
+    repository.apply_worker_run(
+        _worker_run(run_id="run-1", ran_at="2026-05-20T09:00:00+00:00", signal_id="sig-1")
+    )
+    repository.apply_worker_run(
+        _worker_run(run_id="run-2", ran_at="2026-05-20T10:00:00+00:00", signal_id="sig-2")
+    )
+
+    runs = repository.list_worker_runs(limit=1)
+
+    assert len(runs) == 1
+    assert runs[0].run_id == "run-2"

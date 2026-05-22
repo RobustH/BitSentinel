@@ -36,3 +36,15 @@ class StrategySignalRecord(Base):
     direction: Mapped[str] = mapped_column(String(32), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class StrategyWorkerRunRecord(Base):
+    __tablename__ = "strategy_worker_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(160), nullable=False, unique=True, index=True)
+    ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    evaluated_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    generated_signal_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    upserted_state_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    inserted_signal_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

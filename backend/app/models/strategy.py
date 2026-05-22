@@ -141,3 +141,12 @@ class PersistedStrategySignal(BaseModel):
     direction: Literal["long", "short", "neutral"]
     reason: str
     created_at: str
+
+
+class PersistedStrategyWorkerRun(BaseModel):
+    run_id: str
+    ran_at: str
+    evaluated_count: int
+    generated_signal_count: int
+    upserted_state_count: int
+    inserted_signal_count: int

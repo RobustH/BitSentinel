@@ -18,7 +18,11 @@ def _sqlite_engine() -> Engine:
 
 
 def test_managed_table_names_include_strategy_persistence_tables() -> None:
-    assert managed_table_names() == ["strategy_signals", "strategy_states"]
+    assert managed_table_names() == [
+        "strategy_signals",
+        "strategy_states",
+        "strategy_worker_runs",
+    ]
 
 
 def test_initialize_database_creates_strategy_tables_once() -> None:
@@ -27,11 +31,27 @@ def test_initialize_database_creates_strategy_tables_once() -> None:
     first = initialize_database(engine, "sqlite+pysqlite:///:memory:")
     second = initialize_database(engine, "sqlite+pysqlite:///:memory:")
 
-    assert first.created_tables == ["strategy_signals", "strategy_states"]
-    assert first.existing_tables == ["strategy_signals", "strategy_states"]
+    assert first.created_tables == [
+        "strategy_signals",
+        "strategy_states",
+        "strategy_worker_runs",
+    ]
+    assert first.existing_tables == [
+        "strategy_signals",
+        "strategy_states",
+        "strategy_worker_runs",
+    ]
     assert second.created_tables == []
-    assert second.existing_tables == ["strategy_signals", "strategy_states"]
-    assert set(inspect(engine).get_table_names()) == {"strategy_signals", "strategy_states"}
+    assert second.existing_tables == [
+        "strategy_signals",
+        "strategy_states",
+        "strategy_worker_runs",
+    ]
+    assert set(inspect(engine).get_table_names()) == {
+        "strategy_signals",
+        "strategy_states",
+        "strategy_worker_runs",
+    }
 
 
 def test_init_db_script_outputs_json_without_credentials(monkeypatch) -> None:
@@ -48,5 +68,9 @@ def test_init_db_script_outputs_json_without_credentials(monkeypatch) -> None:
     payload = json.loads(completed.stdout)
     assert payload["ok"] is True
     assert payload["target"]["driver"] == "sqlite+pysqlite"
-    assert payload["managed_tables"] == ["strategy_signals", "strategy_states"]
+    assert payload["managed_tables"] == [
+        "strategy_signals",
+        "strategy_states",
+        "strategy_worker_runs",
+    ]
     assert "password" not in completed.stdout.lower()
