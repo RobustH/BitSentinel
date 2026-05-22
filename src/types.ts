@@ -231,10 +231,12 @@ export type StrategyPersistenceStatus = {
   lastUpdated: string | null;
   error: string | null;
   lastWorkerRun: StrategyWorkerRunSummary | null;
+  workerRunHistory: StrategyWorkerRunSummary[];
 };
 
 export type StrategyWorkerRunSummary = {
   runId: string;
+  ranAt?: string;
   evaluatedCount: number;
   generatedSignalCount: number;
   upsertedStateCount: number;

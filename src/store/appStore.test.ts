@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
-import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations, runBackendStrategyWorkerOnceAndPersist } from "../services/backendStrategyApi";
+import {
+  fetchBackendPersistedStrategyData,
+  fetchBackendStrategyEvaluations,
+  fetchBackendStrategyWorkerRuns,
+  runBackendStrategyWorkerOnceAndPersist,
+} from "../services/backendStrategyApi";
 import { fetchBackendDatabaseConnectionStatus } from "../services/backendSystemApi";
 import { createBitSentinelStore } from "./appStore";
 
@@ -13,6 +18,7 @@ vi.mock("../services/backendMarketApi", () => ({
 vi.mock("../services/backendStrategyApi", () => ({
   fetchBackendPersistedStrategyData: vi.fn(),
   fetchBackendStrategyEvaluations: vi.fn(),
+  fetchBackendStrategyWorkerRuns: vi.fn(),
   runBackendStrategyWorkerOnceAndPersist: vi.fn(),
 }));
 
@@ -25,6 +31,7 @@ const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedStrategyData);
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
+const mockedFetchBackendStrategyWorkerRuns = vi.mocked(fetchBackendStrategyWorkerRuns);
 const mockedFetchBackendDatabaseConnectionStatus = vi.mocked(fetchBackendDatabaseConnectionStatus);
 const mockedRunBackendStrategyWorkerOnceAndPersist = vi.mocked(runBackendStrategyWorkerOnceAndPersist);
 
@@ -35,6 +42,7 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendMarketTickers.mockReset();
     mockedFetchBackendPersistedStrategyData.mockReset();
     mockedFetchBackendStrategyEvaluations.mockReset();
+    mockedFetchBackendStrategyWorkerRuns.mockReset();
     mockedFetchBackendDatabaseConnectionStatus.mockReset();
     mockedRunBackendStrategyWorkerOnceAndPersist.mockReset();
   });
@@ -287,6 +295,16 @@ describe("strategy assembly mock store", () => {
       ],
       signals: [],
     });
+    mockedFetchBackendStrategyWorkerRuns.mockResolvedValue([
+      {
+        runId: "run-1",
+        ranAt: "2026-05-23T10:10:00Z",
+        evaluatedCount: 1,
+        generatedSignalCount: 1,
+        upsertedStateCount: 1,
+        insertedSignalCount: 1,
+      },
+    ]);
 
     const result = await store.getState().runStrategyWorkerOnceAndPersist();
 
@@ -304,6 +322,7 @@ describe("strategy assembly mock store", () => {
       insertedSignalCount: 1,
     });
     expect(mockedFetchBackendPersistedStrategyData).toHaveBeenCalled();
+    expect(mockedFetchBackendStrategyWorkerRuns).toHaveBeenCalledWith(10);
     expect(store.getState().strategyStates[0]).toMatchObject({ state: "triggered", nextWaitingFor: "Worker 已入库" });
     expect(store.getState().strategyPersistenceStatus.lastWorkerRun).toMatchObject({
       runId: "run-1",
@@ -313,6 +332,53 @@ describe("strategy assembly mock store", () => {
       insertedSignalCount: 1,
     });
     expect(store.getState().strategyPersistenceStatus.error).toBeNull();
+    expect(store.getState().strategyPersistenceStatus.workerRunHistory).toHaveLength(1);
+  });
+
+  it("refreshes backend worker run history", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendStrategyWorkerRuns.mockResolvedValue([
+      {
+        runId: "run-2",
+        ranAt: "2026-05-23T10:30:00Z",
+        evaluatedCount: 3,
+        generatedSignalCount: 1,
+        upsertedStateCount: 2,
+        insertedSignalCount: 1,
+      },
+    ]);
+
+    await store.getState().refreshWorkerRunHistory();
+
+    expect(mockedFetchBackendStrategyWorkerRuns).toHaveBeenCalledWith(10);
+    expect(store.getState().strategyPersistenceStatus.workerRunHistory[0]).toMatchObject({
+      runId: "run-2",
+      evaluatedCount: 3,
+      upsertedStateCount: 2,
+    });
+    expect(store.getState().strategyPersistenceStatus.error).toBeNull();
+  });
+
+  it("keeps backend worker run history when refresh fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendStrategyWorkerRuns.mockResolvedValueOnce([
+      {
+        runId: "run-success",
+        ranAt: "2026-05-23T10:30:00Z",
+        evaluatedCount: 1,
+        generatedSignalCount: 0,
+        upsertedStateCount: 1,
+        insertedSignalCount: 0,
+      },
+    ]);
+    await store.getState().refreshWorkerRunHistory();
+    const previousHistory = store.getState().strategyPersistenceStatus.workerRunHistory;
+
+    mockedFetchBackendStrategyWorkerRuns.mockRejectedValue(new Error("history unavailable"));
+    await store.getState().refreshWorkerRunHistory();
+
+    expect(store.getState().strategyPersistenceStatus.workerRunHistory).toBe(previousHistory);
+    expect(store.getState().strategyPersistenceStatus.error).toBe("history unavailable");
   });
 
   it("keeps existing strategy data when backend worker persistence fails", async () => {
@@ -325,6 +391,7 @@ describe("strategy assembly mock store", () => {
       insertedSignalCount: 1,
     });
     mockedFetchBackendPersistedStrategyData.mockResolvedValueOnce({ states: [], signals: [] });
+    mockedFetchBackendStrategyWorkerRuns.mockResolvedValueOnce([]);
     await store.getState().runStrategyWorkerOnceAndPersist();
     const previousStates = store.getState().strategyStates;
     const previousRun = store.getState().strategyPersistenceStatus.lastWorkerRun;

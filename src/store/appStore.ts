@@ -15,7 +15,12 @@ import {
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
-import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations, runBackendStrategyWorkerOnceAndPersist } from "../services/backendStrategyApi";
+import {
+  fetchBackendPersistedStrategyData,
+  fetchBackendStrategyEvaluations,
+  fetchBackendStrategyWorkerRuns,
+  runBackendStrategyWorkerOnceAndPersist,
+} from "../services/backendStrategyApi";
 import { fetchBackendDatabaseConnectionStatus } from "../services/backendSystemApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
@@ -80,6 +85,7 @@ type AppState = {
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshPersistedStrategyData: () => Promise<void>;
+  refreshWorkerRunHistory: () => Promise<void>;
   runStrategyWorkerOnceAndPersist: () => Promise<StrategyWorkerRunSummary | null>;
   refreshDatabaseConnectionStatus: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
@@ -284,6 +290,7 @@ const initialState = {
     lastUpdated: null,
     error: null,
     lastWorkerRun: null,
+    workerRunHistory: [],
   },
   databaseConnectionStatus: {
     connected: null,
@@ -469,6 +476,37 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
       });
     }
   },
+  refreshWorkerRunHistory: async () => {
+    set({
+      strategyPersistenceStatus: {
+        ...get().strategyPersistenceStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const workerRunHistory = await fetchBackendStrategyWorkerRuns(10);
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: null,
+          workerRunHistory,
+        },
+      });
+    } catch (error) {
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端 Worker 运行历史刷新失败",
+        },
+      });
+    }
+  },
   runStrategyWorkerOnceAndPersist: async () => {
     set({
       strategyPersistenceStatus: {
@@ -492,6 +530,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
         signals: persisted.signals,
         symbols: buildPersistedStrategySymbols(get().symbols, persisted.states),
         strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
           source: "backend",
           loading: false,
           lastUpdated: nowText(),
@@ -499,6 +538,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           lastWorkerRun: workerRun,
         },
       });
+      await get().refreshWorkerRunHistory();
       return workerRun;
     } catch (error) {
       set({

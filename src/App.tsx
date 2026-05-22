@@ -64,7 +64,7 @@ import {
 import { CandlestickSeries, HistogramSeries, LineSeries, createChart } from "lightweight-charts";
 import { marketSeries as mockMarketSeries } from "./mock/data";
 import { useAppStore } from "./store/appStore";
-import type { AlertRule, BacktestDecision, IndicatorTrend, KlinePoint, MarketDataStatus, MarketStreamStatus, PushChannelConfig, ReviewErrorType, ReviewStatus, Signal, SignalCategory, SignalDefinition, SignalReviewResult, StrategyInstance, StrategyState, TimeframeSlotKey } from "./types";
+import type { AlertRule, BacktestDecision, IndicatorTrend, KlinePoint, MarketDataStatus, MarketStreamStatus, PushChannelConfig, ReviewErrorType, ReviewStatus, Signal, SignalCategory, SignalDefinition, SignalReviewResult, StrategyInstance, StrategyState, StrategyWorkerRunSummary, TimeframeSlotKey } from "./types";
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title, Paragraph } = Typography;
@@ -1552,6 +1552,7 @@ function StrategyMonitorCenter() {
     strategyPersistenceStatus,
     evaluateStrategyMonitors,
     refreshPersistedStrategyData,
+    refreshWorkerRunHistory,
     runStrategyWorkerOnceAndPersist,
     triggerMockSignal,
     selectSignal,
@@ -1560,6 +1561,10 @@ function StrategyMonitorCenter() {
   const [stateFilter, setStateFilter] = useState<"all" | StrategyState["state"]>("all");
   const activeInstanceId = selectedInstanceId || strategyInstances[0]?.id || "";
   const activeInstance = strategyInstances.find((instance) => instance.id === activeInstanceId);
+
+  useEffect(() => {
+    void refreshWorkerRunHistory();
+  }, [refreshWorkerRunHistory]);
 
   const strategySummaries = strategyInstances.map((instance) => {
     const states = strategyStates.filter((state) => state.instanceId === instance.id);
@@ -1621,6 +1626,19 @@ function StrategyMonitorCenter() {
       placement: "bottomRight",
     });
   };
+
+  const workerRunHistoryColumns: ColumnsType<StrategyWorkerRunSummary> = [
+    {
+      title: "运行时间",
+      dataIndex: "ranAt",
+      render: (value?: string) => value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "-",
+    },
+    { title: "运行ID", dataIndex: "runId", ellipsis: true },
+    { title: "评估", dataIndex: "evaluatedCount", align: "right" },
+    { title: "生成信号", dataIndex: "generatedSignalCount", align: "right" },
+    { title: "更新状态", dataIndex: "upsertedStateCount", align: "right" },
+    { title: "插入信号", dataIndex: "insertedSignalCount", align: "right" },
+  ];
 
   const columns: ColumnsType<(typeof rows)[number]> = [
     {
@@ -1768,6 +1786,24 @@ function StrategyMonitorCenter() {
               <Text type="secondary">运行ID：{strategyPersistenceStatus.lastWorkerRun.runId}</Text>
             </Card>
           )}
+
+          <Card
+            title="Worker运行历史"
+            extra={
+              <Button loading={strategyPersistenceStatus.loading} icon={<RefreshCw size={16} />} onClick={() => void refreshWorkerRunHistory()}>
+                刷新历史
+              </Button>
+            }
+          >
+            <Table
+              rowKey="runId"
+              columns={workerRunHistoryColumns}
+              dataSource={strategyPersistenceStatus.workerRunHistory}
+              pagination={false}
+              size="small"
+              locale={{ emptyText: "暂无后端运行历史" }}
+            />
+          </Card>
 
           <Row gutter={[16, 16]}>
             <Col xs={12} md={6}><Card><Statistic title="挂载币种" value={activeSummary?.total ?? 0} /></Card></Col>

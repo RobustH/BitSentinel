@@ -80,6 +80,7 @@ type BackendStrategyEvaluationResponse = {
 
 type BackendStrategyWorkerRunResponse = {
   run_id: string;
+  ran_at?: string;
   evaluated_count: number;
   generated_signal_count: number;
   persistence: {
@@ -105,6 +106,15 @@ type BackendPersistedStrategySignal = {
   direction: Signal["direction"];
   reason: string;
   created_at: string;
+};
+
+type BackendPersistedStrategyWorkerRun = {
+  run_id: string;
+  ran_at: string;
+  evaluated_count: number;
+  generated_signal_count: number;
+  upserted_state_count: number;
+  inserted_signal_count: number;
 };
 
 type FetchBackendStrategyEvaluationsInput = {
@@ -242,6 +252,15 @@ const toFrontendPersistedSignal = (row: BackendPersistedStrategySignal): Signal 
   flowConfirm: "后端持久化信号",
 });
 
+const toFrontendWorkerRun = (row: BackendPersistedStrategyWorkerRun): StrategyWorkerRunSummary => ({
+  runId: row.run_id,
+  ranAt: row.ran_at,
+  evaluatedCount: row.evaluated_count,
+  generatedSignalCount: row.generated_signal_count,
+  upsertedStateCount: row.upserted_state_count,
+  insertedSignalCount: row.inserted_signal_count,
+});
+
 export async function fetchBackendStrategyEvaluations(
   input: FetchBackendStrategyEvaluationsInput,
 ): Promise<StrategyEvaluationResult[]> {
@@ -271,6 +290,7 @@ export async function runBackendStrategyWorkerOnceAndPersist(
   const payload = (await response.json()) as BackendStrategyWorkerRunResponse;
   return {
     runId: payload.run_id,
+    ranAt: payload.ran_at,
     evaluatedCount: payload.evaluated_count,
     generatedSignalCount: payload.generated_signal_count,
     upsertedStateCount: payload.persistence?.upserted_state_count ?? 0,
@@ -294,4 +314,9 @@ export async function fetchBackendPersistedStrategyData(): Promise<BackendPersis
     fetchBackendPersistedStrategySignals(),
   ]);
   return { states, signals };
+}
+
+export async function fetchBackendStrategyWorkerRuns(limit = 10): Promise<StrategyWorkerRunSummary[]> {
+  const payload = await requestJson<BackendPersistedStrategyWorkerRun[]>(`/api/strategy/worker/runs?limit=${limit}`);
+  return payload.map(toFrontendWorkerRun);
 }
