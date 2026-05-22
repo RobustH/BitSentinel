@@ -636,6 +636,79 @@ Base.metadata.create_all(bind=engine)
 python -m app.scripts.init_db
 ```
 
+### 策略 Worker 运行历史契约
+
+#### 1. Scope / Trigger
+
+- Trigger: `persist=true` 的 Worker 运行需要留下后端事实记录，便于前端后续展示运行历史、排查调度和审计告警。
+- Scope: 只记录 Worker run summary，不记录完整请求快照、条件明细、定时调度状态或告警投递结果。
+
+#### 2. Signatures
+
+- ORM model: `backend/app/db/strategy.py::StrategyWorkerRunRecord`
+- Repository write: `StrategyPersistenceRepository(session).apply_worker_run(run_response)`
+- Repository read: `StrategyPersistenceRepository(session).list_worker_runs(limit=20)`
+- HTTP: `GET /api/strategy/worker/runs?limit=20`
+- Response model: `PersistedStrategyWorkerRun`
+- Managed table: `strategy_worker_runs`
+
+#### 3. Contracts
+
+- `strategy_worker_runs` 表按 `run_id` 唯一保存持久化 Worker 运行摘要。
+- 字段至少包含：
+  - `run_id`
+  - `ran_at`
+  - `evaluated_count`
+  - `generated_signal_count`
+  - `upserted_state_count`
+  - `inserted_signal_count`
+- `POST /api/strategy/worker/run-once?persist=true` 在同一事务中写入状态、信号和运行历史。
+- `persist=false` 保持纯运行行为，不访问持久化层、不写运行历史。
+- 查询 API 按 `ran_at desc` 返回最近运行记录，并限制 `limit` 范围，避免无界列表。
+- repository 只 `flush`，不隐式 `commit`；事务边界仍由 API 或未来调度层控制。
+- `python -m app.scripts.init_db` 必须把 `strategy_worker_runs` 纳入 managed tables。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 首次持久化某个 `run_id` | 插入 `strategy_worker_runs` |
+| 重复持久化同一 `run_id` | 更新已有摘要，不重复插入 |
+| `persist=false` | 不写运行历史，查询结果不变 |
+| `limit` 缺失 | 使用默认有限条数 |
+| `limit` 超出允许范围 | FastAPI 参数校验返回 422 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 前端历史列表只查询 `/api/strategy/worker/runs`，不从信号表反推运行记录。
+- Base: 手动运行 Worker 后，历史表记录本次摘要和持久化计数。
+- Bad: 把完整请求 payload 或数据库连接信息写入运行历史，或让 repository 自动 commit。
+
+#### 6. Tests Required
+
+- repository 测试覆盖运行历史插入、同 `run_id` 更新、倒序查询和 limit。
+- API 测试覆盖 `persist=true` 写入历史、`persist=false` 不写历史、`GET /worker/runs` 查询。
+- 初始化测试覆盖 managed tables 包含 `strategy_worker_runs`。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# 从 signals 表临时聚合运行历史，无法表达无信号但有状态更新的运行
+session.query(StrategySignalRecord).order_by(StrategySignalRecord.created_at.desc())
+```
+
+#### Correct
+
+```python
+# Worker 持久化时显式记录运行摘要，查询层读取事实表
+summary = repository.apply_worker_run(response)
+session.commit()
+return repository.list_worker_runs(limit=20)
+```
+
 ## 第五阶段：回测与复盘
 
 推荐先做轻量事件回放：
