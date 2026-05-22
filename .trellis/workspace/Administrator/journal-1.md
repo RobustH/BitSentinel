@@ -408,3 +408,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 修复本地前端 CORS 配置
+
+**Date**: 2026-05-23
+**Task**: 修复本地前端 CORS 配置
+**Branch**: `main`
+
+### Summary
+
+修复后端默认 CORS 来源，加入 localhost/127.0.0.1 的 5173 端口；同步 .env.example，重启后端并验证 CORS 预检与行情请求通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `aea1b0d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
