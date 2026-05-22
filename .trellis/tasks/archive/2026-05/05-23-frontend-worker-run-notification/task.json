@@ -3,7 +3,7 @@
   "name": "frontend-worker-run-notification",
   "title": "前端Worker入库反馈通知",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "frontend",
   "scope": "worker-persistence-feedback",
   "package": "src",
