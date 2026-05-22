@@ -18,6 +18,23 @@ uvicorn app.main:app --reload --port 8000
 GET http://127.0.0.1:8000/api/health
 ```
 
+数据库连接测试：
+
+```text
+GET http://127.0.0.1:8000/api/system/database/test
+```
+
+初始化当前后端管理的数据库表：
+
+```bash
+cd backend
+python -m app.scripts.init_db
+```
+
+该命令读取后端 `.env` 中的 `BITSENTINEL_DATABASE_URL`，当前会幂等创建
+`strategy_states` 和 `strategy_signals`。输出只包含脱敏连接目标和表名，不会打印
+数据库密码或完整连接串。
+
 ## 模块边界
 
 - `app/api/`：HTTP API 路由。
