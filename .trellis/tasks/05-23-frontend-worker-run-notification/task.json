@@ -1,0 +1,33 @@
+{
+  "id": "frontend-worker-run-notification",
+  "name": "frontend-worker-run-notification",
+  "title": "前端Worker入库反馈通知",
+  "description": "",
+  "status": "done",
+  "dev_type": "frontend",
+  "scope": "worker-persistence-feedback",
+  "package": "src",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "1eaee8a",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/App.tsx",
+    "src/store/appStore.ts",
+    "src/store/appStore.test.ts",
+    "src/services/backendStrategyApi.ts",
+    "src/types.ts",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "运行Worker并入库后根据 store action 返回摘要弹出成功通知，失败时返回 null 并展示错误通知。",
+  "meta": {}
+}

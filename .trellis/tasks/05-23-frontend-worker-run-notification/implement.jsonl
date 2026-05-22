@@ -1,0 +1,1 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"前端状态管理规格要求组件只调用 store action，Worker 持久化成功返回摘要、失败返回 null，并保留上一条成功摘要。"}
