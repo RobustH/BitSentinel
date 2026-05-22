@@ -1,0 +1,2 @@
+{"file":".trellis/spec/architecture/backend-roadmap.md","reason":"后端 Worker、持久化、初始化命令和 API 分层契约。"}
+{"file":".trellis/spec/architecture/technology-boundaries.md","reason":"确认 Worker 和数据库事实源属于 Python 后端边界。"}
