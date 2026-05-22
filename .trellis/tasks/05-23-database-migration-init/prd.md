@@ -75,3 +75,13 @@
   * `backend/app/services/database/connection.py`
   * `backend/README.md`
   * `.trellis/spec/architecture/backend-roadmap.md`
+
+## Verification Notes
+
+* 2026-05-23: 已执行 `python -m app.scripts.init_db`，真实数据库 `bitsentinel` 返回 `ok = true`。
+* 本次创建/确认表：
+  * `strategy_signals`
+  * `strategy_states`
+* 已验证查询接口可用：
+  * `GET /api/strategy/states` 返回 `[]`
+  * `GET /api/strategy/signals` 返回 `[]`
