@@ -3,7 +3,7 @@
   "name": "worker-run-history",
   "title": "Worker运行历史落库与查询",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "backend",
   "scope": "worker-run-history",
   "package": "backend",
