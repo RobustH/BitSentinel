@@ -1,0 +1,33 @@
+{
+  "id": "frontend-worker-run-history",
+  "name": "frontend-worker-run-history",
+  "title": "前端展示Worker运行历史",
+  "description": "",
+  "status": "done",
+  "dev_type": "frontend",
+  "scope": "worker-run-history",
+  "package": "src",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "646cec3",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/App.tsx",
+    "src/types.ts",
+    "src/services/backendStrategyApi.ts",
+    "src/store/appStore.ts",
+    "src/store/appStore.test.ts",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "前端接入 GET /api/strategy/worker/runs，策略监控页展示 Worker 运行历史，运行入库成功后自动刷新历史。",
+  "meta": {}
+}
