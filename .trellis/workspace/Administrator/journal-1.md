@@ -508,3 +508,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: 策略表数据库初始化
+
+**Date**: 2026-05-23
+**Task**: 策略表数据库初始化
+**Branch**: `main`
+
+### Summary
+
+新增后端数据库初始化 CLI，幂等创建 strategy_states 和 strategy_signals；在真实 bitsentinel 数据库执行初始化并验证状态/信号查询接口可用。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4e16381` | (see git log) |
+| `fa01600` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
