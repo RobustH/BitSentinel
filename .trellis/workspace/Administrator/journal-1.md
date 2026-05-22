@@ -608,3 +608,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: 前端数据库连接状态展示
+
+**Date**: 2026-05-23
+**Task**: 前端数据库连接状态展示
+**Branch**: `main`
+
+### Summary
+
+系统设置页新增数据库连接状态卡片，前端通过后端诊断接口测试连接并展示脱敏目标；Zustand 增加数据库连接状态和刷新 action。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `48f4a31` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
