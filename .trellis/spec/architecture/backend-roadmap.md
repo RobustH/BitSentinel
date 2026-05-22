@@ -106,6 +106,70 @@ async def tickers():
 app.include_router(api_router, prefix="/api")
 ```
 
+### 后端数据库连接测试契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 数据库连接必须由后端配置文件或部署环境变量管理，同时需要一个可测试的后端诊断入口确认当前配置是否可连。
+- Scope: 只测试当前后端配置的数据库连接，不在页面编辑连接串，不创建业务表，不改变 `/api/health` 的无外部依赖语义。
+
+#### 2. Signatures
+
+- Env key: `BITSENTINEL_DATABASE_URL`
+- Config field: `Settings.database_url`
+- Engine provider: `backend/app/core/database.py::get_database_engine`
+- Service: `check_database_connection(engine, database_url)`
+- HTTP: `GET /api/system/database/test`
+- Response model: `DatabaseConnectionTestResult`
+
+#### 3. Contracts
+
+- 数据库连接串只来自后端配置：`.env`、`.env.example` 或部署环境变量。
+- 响应字段：
+  - `connected`: `true` / `false`
+  - `message`: 可读测试结果，不包含密码。
+  - `target`: 脱敏目标信息，只允许包含 `driver`、`host`、`port`、`database`。
+- 接口不得返回完整 database URL、用户名、密码或原始 secret。
+- `/api/health` 仍只表达应用存活，不依赖数据库连接。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 当前配置可连接 | 返回 `connected = true` 和脱敏目标信息 |
+| 当前配置不可连接 | 返回 `connected = false` 和错误类别摘要 |
+| database URL 包含用户名/密码 | 响应中只返回脱敏目标，不返回凭据 |
+| 前端需要测试按钮 | 前端只调用测试接口，不保存或编辑连接串 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 运维或本地开发通过后端 `.env` 设置 `BITSENTINEL_DATABASE_URL`，再调用测试接口确认连通。
+- Base: 数据库不可用时，测试接口报告失败，但 `/api/health` 仍可返回应用存活。
+- Bad: 在 React 页面、Zustand、localStorage 或前端 API client 中保存数据库连接串。
+
+#### 6. Tests Required
+
+- 单元测试覆盖 URL 脱敏，不得泄露密码。
+- 单元测试覆盖连接成功和连接失败结果。
+- API 测试覆盖 `GET /api/system/database/test` 返回稳定响应结构。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+// 前端保存数据库连接串，凭据会进入浏览器环境
+localStorage.setItem("databaseUrl", databaseUrl);
+```
+
+#### Correct
+
+```python
+# 后端从配置读取连接串，只返回脱敏诊断结果
+return check_database_connection(engine, settings.database_url)
+```
+
 ## 第二阶段：行情采集
 
 范围：
