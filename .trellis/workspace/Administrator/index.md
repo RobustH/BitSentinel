@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
+- **Total Sessions**: 17
 - **Last Active**: 2026-05-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~544 | Active |
+| `journal-1.md` | ~577 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 17 | 2026-05-23 | 前端接入持久化策略数据 | `71d1563` | `main` |
 | 16 | 2026-05-23 | 策略表数据库初始化 | `4e16381`, `fa01600` | `main` |
 | 15 | 2026-05-23 | 后端数据库连接配置与测试 | `030c090`, `0ffcfa1` | `main` |
 | 14 | 2026-05-23 | Worker 持久化闭环 API | `bb350da` | `main` |

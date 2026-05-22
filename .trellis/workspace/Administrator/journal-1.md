@@ -542,3 +542,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: 前端接入持久化策略数据
+
+**Date**: 2026-05-23
+**Task**: 前端接入持久化策略数据
+**Branch**: `main`
+
+### Summary
+
+前端新增后端策略状态和信号查询 client，Zustand 增加持久化数据刷新 action，策略监控和数据仓页面可手动同步真实库快照。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `71d1563` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
