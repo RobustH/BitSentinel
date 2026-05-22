@@ -69,12 +69,42 @@ type BackendStrategyEvaluationResponse = {
   results: BackendStrategyEvaluationResult[];
 };
 
+type BackendPersistedStrategyState = {
+  strategy_instance_id: string;
+  symbol: string;
+  state: StrategyState["state"];
+  last_score: number;
+  next_waiting_for: string;
+  updated_at: string;
+};
+
+type BackendPersistedStrategySignal = {
+  signal_id: string;
+  strategy_instance_id: string;
+  symbol: string;
+  strength: Signal["strength"];
+  direction: Signal["direction"];
+  reason: string;
+  created_at: string;
+};
+
 type FetchBackendStrategyEvaluationsInput = {
   strategyInstances: StrategyInstance[];
   marketSeries: Record<string, KlinePoint[]>;
   moneyFlows: MoneyFlowPoint[];
   signals: Signal[];
   interval?: string;
+};
+
+type BackendPersistedStrategyData = {
+  states: StrategyState[];
+  signals: Signal[];
+};
+
+const requestJson = async <T>(path: string): Promise<T> => {
+  const response = await fetch(`${BACKEND_API_BASE_URL}${path}`);
+  if (!response.ok) throw new Error(`Backend strategy request failed: ${response.status}`);
+  return response.json() as Promise<T>;
 };
 
 const parseOpenTime = (time: string, fallbackIndex: number) => {
@@ -160,6 +190,26 @@ const toFrontendResult = (row: BackendStrategyEvaluationResult): StrategyEvaluat
   conditions: row.conditions.map(toFrontendCondition),
 });
 
+const toFrontendPersistedState = (row: BackendPersistedStrategyState): StrategyState => ({
+  instanceId: row.strategy_instance_id,
+  symbol: row.symbol,
+  state: row.state,
+  lastUpdated: row.updated_at,
+  nextWaitingFor: row.next_waiting_for,
+});
+
+const toFrontendPersistedSignal = (row: BackendPersistedStrategySignal): Signal => ({
+  id: row.signal_id,
+  symbol: row.symbol,
+  instanceId: row.strategy_instance_id,
+  strength: row.strength,
+  direction: row.direction,
+  reason: row.reason,
+  createdAt: row.created_at,
+  pushStatus: "sent",
+  flowConfirm: "后端持久化信号",
+});
+
 export async function fetchBackendStrategyEvaluations(
   input: FetchBackendStrategyEvaluationsInput,
 ): Promise<StrategyEvaluationResult[]> {
@@ -173,4 +223,22 @@ export async function fetchBackendStrategyEvaluations(
 
   const payload = (await response.json()) as BackendStrategyEvaluationResponse;
   return payload.results.map(toFrontendResult);
+}
+
+export async function fetchBackendPersistedStrategyStates(): Promise<StrategyState[]> {
+  const payload = await requestJson<BackendPersistedStrategyState[]>("/api/strategy/states");
+  return payload.map(toFrontendPersistedState);
+}
+
+export async function fetchBackendPersistedStrategySignals(): Promise<Signal[]> {
+  const payload = await requestJson<BackendPersistedStrategySignal[]>("/api/strategy/signals");
+  return payload.map(toFrontendPersistedSignal);
+}
+
+export async function fetchBackendPersistedStrategyData(): Promise<BackendPersistedStrategyData> {
+  const [states, signals] = await Promise.all([
+    fetchBackendPersistedStrategyStates(),
+    fetchBackendPersistedStrategySignals(),
+  ]);
+  return { states, signals };
 }

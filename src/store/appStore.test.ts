@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
-import { fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
+import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
@@ -10,12 +10,14 @@ vi.mock("../services/backendMarketApi", () => ({
 }));
 
 vi.mock("../services/backendStrategyApi", () => ({
+  fetchBackendPersistedStrategyData: vi.fn(),
   fetchBackendStrategyEvaluations: vi.fn(),
 }));
 
 const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummary);
 const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
+const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedStrategyData);
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
 
 describe("strategy assembly mock store", () => {
@@ -23,6 +25,7 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendIndicatorSummary.mockReset();
     mockedFetchBackendMarketKlines.mockReset();
     mockedFetchBackendMarketTickers.mockReset();
+    mockedFetchBackendPersistedStrategyData.mockReset();
     mockedFetchBackendStrategyEvaluations.mockReset();
   });
 
@@ -200,5 +203,56 @@ describe("strategy assembly mock store", () => {
 
     expect(store.getState().indicatorSummaries["BTCUSDT-4h"]).toBeUndefined();
     expect(store.getState().indicatorRefreshStatus.error).toBe("indicator unavailable");
+  });
+
+  it("refreshes persisted strategy states and signals from backend", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendPersistedStrategyData.mockResolvedValue({
+      states: [
+        {
+          instanceId: "inst-ma-btc",
+          symbol: "BTCUSDT",
+          state: "triggered",
+          lastUpdated: "2026-05-23T10:00:00Z",
+          nextWaitingFor: "后端数据库状态",
+        },
+      ],
+      signals: [
+        {
+          id: "sig-db-1",
+          instanceId: "inst-ma-btc",
+          symbol: "BTCUSDT",
+          strength: "strong",
+          direction: "long",
+          reason: "后端持久化信号",
+          createdAt: "2026-05-23T10:00:00Z",
+          pushStatus: "sent",
+          flowConfirm: "后端持久化信号",
+        },
+      ],
+    });
+
+    await store.getState().refreshPersistedStrategyData();
+
+    expect(mockedFetchBackendPersistedStrategyData).toHaveBeenCalled();
+    expect(store.getState().strategyStates).toHaveLength(1);
+    expect(store.getState().strategyStates[0]).toMatchObject({ state: "triggered", nextWaitingFor: "后端数据库状态" });
+    expect(store.getState().signals).toHaveLength(1);
+    expect(store.getState().symbols.find((item) => item.symbol === "BTCUSDT")?.status).toBe("alert");
+    expect(store.getState().strategyPersistenceStatus).toMatchObject({ source: "backend", loading: false, error: null });
+  });
+
+  it("keeps existing strategy data when persisted refresh fails", async () => {
+    const store = createBitSentinelStore();
+    const previousStates = store.getState().strategyStates;
+    const previousSignals = store.getState().signals;
+    mockedFetchBackendPersistedStrategyData.mockRejectedValue(new Error("persistence unavailable"));
+
+    await store.getState().refreshPersistedStrategyData();
+
+    expect(store.getState().strategyStates).toBe(previousStates);
+    expect(store.getState().signals).toBe(previousSignals);
+    expect(store.getState().strategyPersistenceStatus.error).toBe("persistence unavailable");
+    expect(store.getState().strategyPersistenceStatus.source).toBe("mock");
   });
 });

@@ -75,7 +75,7 @@ export type Signal = {
   symbol: string;
   instanceId: string;
   strategyVersion?: number;
-  strength: "strong" | "weak" | "watch";
+  strength: "strong" | "weak" | "watch" | "invalidated";
   direction: "long" | "short" | "neutral";
   reason: string;
   createdAt: string;
@@ -221,6 +221,13 @@ export type IndicatorRefreshStatus = {
   loading: boolean;
   symbol: string | null;
   interval: string | null;
+  lastUpdated: string | null;
+  error: string | null;
+};
+
+export type StrategyPersistenceStatus = {
+  source: "mock" | "backend";
+  loading: boolean;
   lastUpdated: string | null;
   error: string | null;
 };

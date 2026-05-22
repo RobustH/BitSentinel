@@ -11,6 +11,7 @@ import {
   LineChart,
   ListChecks,
   RadioTower,
+  RefreshCw,
   Search,
   Settings,
   ShieldAlert,
@@ -89,6 +90,7 @@ const strengthMeta: Record<Signal["strength"], { label: string; color: string }>
   strong: { label: "强信号", color: "green" },
   weak: { label: "弱信号", color: "gold" },
   watch: { label: "观察", color: "blue" },
+  invalidated: { label: "已失效", color: "red" },
 };
 
 const directionLabel: Record<Signal["direction"], string> = {
@@ -1540,7 +1542,19 @@ function MonitorCenter() {
 }
 
 function StrategyMonitorCenter() {
-  const { strategyInstances, strategyStates, strategyEvaluations, symbols, moneyFlows, signals, evaluateStrategyMonitors, triggerMockSignal, selectSignal } = useAppStore();
+  const {
+    strategyInstances,
+    strategyStates,
+    strategyEvaluations,
+    symbols,
+    moneyFlows,
+    signals,
+    strategyPersistenceStatus,
+    evaluateStrategyMonitors,
+    refreshPersistedStrategyData,
+    triggerMockSignal,
+    selectSignal,
+  } = useAppStore();
   const [selectedInstanceId, setSelectedInstanceId] = useState(strategyInstances[0]?.id ?? "");
   const [stateFilter, setStateFilter] = useState<"all" | StrategyState["state"]>("all");
   const activeInstanceId = selectedInstanceId || strategyInstances[0]?.id || "";
@@ -1700,7 +1714,12 @@ function StrategyMonitorCenter() {
                 <Title level={4} className="page-title">{activeInstance ? strategyDisplayName(activeInstance) : "监控中心"}</Title>
                 <Text type="secondary">查看当前策略下所有挂载币种的市场情况和状态机位置。</Text>
               </Space>
-              <Button onClick={() => void evaluateStrategyMonitors()}>重新计算策略</Button>
+              <Space>
+                <Button loading={strategyPersistenceStatus.loading} icon={<RefreshCw size={16} />} onClick={() => void refreshPersistedStrategyData()}>
+                  同步后端持久化
+                </Button>
+                <Button onClick={() => void evaluateStrategyMonitors()}>重新计算策略</Button>
+              </Space>
               <Select
                 value={stateFilter}
                 onChange={(value) => setStateFilter(value as typeof stateFilter)}
@@ -1712,6 +1731,10 @@ function StrategyMonitorCenter() {
               />
             </Flex>
           </Card>
+
+          {strategyPersistenceStatus.error && (
+            <Alert type="warning" showIcon message="后端持久化数据同步失败" description={strategyPersistenceStatus.error} />
+          )}
 
           <Row gutter={[16, 16]}>
             <Col xs={12} md={6}><Card><Statistic title="挂载币种" value={activeSummary?.total ?? 0} /></Card></Col>
@@ -3122,7 +3145,19 @@ function StrategyWorkspace() {
 }
 
 function DataWarehouse() {
-  const { symbols, moneyFlows, signals, strategyStates, timeframeDecisions, marketSeries, marketDataStatus, marketStreamStatus, refreshBackendMarketData } = useAppStore();
+  const {
+    symbols,
+    moneyFlows,
+    signals,
+    strategyStates,
+    timeframeDecisions,
+    marketSeries,
+    marketDataStatus,
+    marketStreamStatus,
+    strategyPersistenceStatus,
+    refreshBackendMarketData,
+    refreshPersistedStrategyData,
+  } = useAppStore();
   const klineCount = Object.values(marketSeries).reduce((sum, series) => sum + series.length, 0);
   const warehouseTypes = [
     {
@@ -3239,11 +3274,18 @@ function DataWarehouse() {
               当前数据源：{marketSourceMeta[marketDataStatus.source].label} / 最近更新：{marketDataStatus.lastUpdated ?? "尚未刷新"}
             </Text>
             <Text type="secondary">实时连接：{streamStatusMeta[marketStreamStatus.status].label} / 最近推送：{marketStreamStatus.lastEventAt ?? "-"}</Text>
+            <Text type="secondary">策略持久化：{strategyPersistenceStatus.source === "backend" ? "后端数据库" : "本地模拟"} / 最近同步：{strategyPersistenceStatus.lastUpdated ?? "尚未同步"}</Text>
             {marketDataStatus.error && <Text type="danger">最近错误：{marketDataStatus.error}</Text>}
+            {strategyPersistenceStatus.error && <Text type="danger">持久化同步错误：{strategyPersistenceStatus.error}</Text>}
           </Space>
-          <Button loading={marketDataStatus.loading} onClick={() => void refreshBackendMarketData()}>
-            刷新数据仓行情
-          </Button>
+          <Space>
+            <Button loading={strategyPersistenceStatus.loading} icon={<RefreshCw size={16} />} onClick={() => void refreshPersistedStrategyData()}>
+              同步策略库
+            </Button>
+            <Button loading={marketDataStatus.loading} onClick={() => void refreshBackendMarketData()}>
+              刷新数据仓行情
+            </Button>
+          </Space>
         </Flex>
       </Card>
 

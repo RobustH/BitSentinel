@@ -15,7 +15,7 @@ import {
 } from "../mock/data";
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
-import { fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
+import { fetchBackendPersistedStrategyData, fetchBackendStrategyEvaluations } from "../services/backendStrategyApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -35,6 +35,7 @@ import type {
   SignalReviewResult,
   Signal,
   SignalDefinition,
+  StrategyPersistenceStatus,
   StrategyInstance,
   StrategyEvaluationResult,
   StrategyState,
@@ -67,12 +68,14 @@ type AppState = {
   marketDataStatus: MarketDataStatus;
   klineRefreshStatus: KlineRefreshStatus;
   indicatorRefreshStatus: IndicatorRefreshStatus;
+  strategyPersistenceStatus: StrategyPersistenceStatus;
   marketStreamStatus: MarketStreamStatus;
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
   refreshBackendMarketData: () => Promise<void>;
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
+  refreshPersistedStrategyData: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => Promise<void>;
   startBinanceMarketStream: () => void;
@@ -206,6 +209,28 @@ const buildEvaluationPatch = (
   };
 };
 
+const buildPersistedStrategySymbols = (
+  symbols: SymbolMarket[],
+  strategyStates: StrategyState[],
+): SymbolMarket[] => {
+  const alertSymbols = new Set(
+    strategyStates
+      .filter((item) => item.state === "triggered")
+      .map((item) => item.symbol),
+  );
+  const watchingSymbols = new Set(
+    strategyStates
+      .filter((item) => item.state === "watching" || item.state === "waiting_trigger")
+      .map((item) => item.symbol),
+  );
+
+  return symbols.map((item) => {
+    if (alertSymbols.has(item.symbol)) return { ...item, status: "alert" };
+    if (watchingSymbols.has(item.symbol)) return { ...item, status: "watching" };
+    return item;
+  });
+};
+
 const initialState = {
   activeSection: "dashboard",
   selectedSignalId: null,
@@ -244,6 +269,12 @@ const initialState = {
     loading: false,
     symbol: null,
     interval: null,
+    lastUpdated: null,
+    error: null,
+  },
+  strategyPersistenceStatus: {
+    source: "mock" as const,
+    loading: false,
     lastUpdated: null,
     error: null,
   },
@@ -386,6 +417,38 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           symbol,
           interval,
           error: error instanceof Error ? error.message : "后端指标摘要刷新失败",
+        },
+      });
+    }
+  },
+  refreshPersistedStrategyData: async () => {
+    set({
+      strategyPersistenceStatus: {
+        ...get().strategyPersistenceStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const persisted = await fetchBackendPersistedStrategyData();
+      set({
+        strategyStates: persisted.states,
+        signals: persisted.signals,
+        symbols: buildPersistedStrategySymbols(get().symbols, persisted.states),
+        strategyPersistenceStatus: {
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: null,
+        },
+      });
+    } catch (error) {
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端持久化策略数据刷新失败",
         },
       });
     }
