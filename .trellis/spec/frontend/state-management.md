@@ -480,7 +480,9 @@ void refreshPersistedStrategyData();
   - `existing_states`
 - `existing_states` 从当前 Zustand `strategyStates` 转换为后端 snake_case。
 - Store action 成功后必须再次调用持久化数据查询，把数据库事实源刷新回 `strategyStates` 和 `signals`。
+- Store action 成功后必须保存最近一次 Worker 运行摘要，至少包括 `runId`、评估数量、生成信号数、更新状态数、插入信号数。
 - Store action 失败时保留现有状态和信号，只记录 `strategyPersistenceStatus.error`。
+- Store action 失败时不得清空上一条成功 Worker 运行摘要。
 
 ### 4. Validation & Error Matrix
 | 条件 | 处理 |
@@ -489,6 +491,7 @@ void refreshPersistedStrategyData();
 | Worker 请求失败 | 保留旧数据，记录错误 |
 | Worker 成功但后续刷新失败 | 保留旧数据，记录错误 |
 | 当前已有强信号 | 后端负责去重，前端只提交 `existing_signals` |
+| 已有上一条成功运行摘要 | 失败时保留摘要，方便用户判断上一次成功入库结果 |
 
 ### 5. Good/Base/Bad Cases
 - Good: 策略监控页点击“运行Worker并入库”，随后页面展示真实库状态。
@@ -497,7 +500,8 @@ void refreshPersistedStrategyData();
 
 ### 6. Tests Required
 - 成功分支：断言 Worker client 被调用，随后刷新持久化数据。
-- 失败分支：断言旧状态保留，错误写入 `strategyPersistenceStatus.error`。
+- 成功分支：断言 store 写入最近一次 Worker 运行摘要。
+- 失败分支：断言旧状态和上一条运行摘要保留，错误写入 `strategyPersistenceStatus.error`。
 - TypeScript build 必须通过。
 
 ### 7. Wrong vs Correct
