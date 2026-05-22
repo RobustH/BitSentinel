@@ -288,7 +288,7 @@ describe("strategy assembly mock store", () => {
       signals: [],
     });
 
-    await store.getState().runStrategyWorkerOnceAndPersist();
+    const result = await store.getState().runStrategyWorkerOnceAndPersist();
 
     expect(mockedRunBackendStrategyWorkerOnceAndPersist).toHaveBeenCalledWith({
       strategyInstances: expect.any(Array),
@@ -296,6 +296,12 @@ describe("strategy assembly mock store", () => {
       moneyFlows: expect.any(Array),
       signals: expect.any(Array),
       strategyStates: expect.any(Array),
+    });
+    expect(result).toMatchObject({
+      runId: "run-1",
+      evaluatedCount: 1,
+      upsertedStateCount: 1,
+      insertedSignalCount: 1,
     });
     expect(mockedFetchBackendPersistedStrategyData).toHaveBeenCalled();
     expect(store.getState().strategyStates[0]).toMatchObject({ state: "triggered", nextWaitingFor: "Worker 已入库" });
@@ -325,10 +331,11 @@ describe("strategy assembly mock store", () => {
 
     mockedRunBackendStrategyWorkerOnceAndPersist.mockRejectedValue(new Error("worker unavailable"));
 
-    await store.getState().runStrategyWorkerOnceAndPersist();
+    const failedResult = await store.getState().runStrategyWorkerOnceAndPersist();
 
     expect(store.getState().strategyStates).toBe(previousStates);
     expect(store.getState().strategyPersistenceStatus.lastWorkerRun).toBe(previousRun);
+    expect(failedResult).toBeNull();
     expect(store.getState().strategyPersistenceStatus.error).toBe("worker unavailable");
   });
 

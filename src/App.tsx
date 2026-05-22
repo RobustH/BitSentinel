@@ -1604,6 +1604,23 @@ function StrategyMonitorCenter() {
     });
 
   const activeSummary = strategySummaries.find((item) => item.instance.id === activeInstanceId);
+  const handleRunWorker = async () => {
+    const result = await runStrategyWorkerOnceAndPersist();
+    if (!result) {
+      notification.error({
+        message: "Worker运行失败",
+        description: useAppStore.getState().strategyPersistenceStatus.error ?? "请检查后端服务和数据库连接。",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    notification.success({
+      message: "Worker已运行并入库",
+      description: `评估 ${result.evaluatedCount} 条，更新状态 ${result.upsertedStateCount} 条，插入信号 ${result.insertedSignalCount} 条。`,
+      placement: "bottomRight",
+    });
+  };
 
   const columns: ColumnsType<(typeof rows)[number]> = [
     {
@@ -1719,7 +1736,7 @@ function StrategyMonitorCenter() {
                 <Button loading={strategyPersistenceStatus.loading} icon={<RefreshCw size={16} />} onClick={() => void refreshPersistedStrategyData()}>
                   同步后端持久化
                 </Button>
-                <Button type="primary" loading={strategyPersistenceStatus.loading} icon={<Cpu size={16} />} onClick={() => void runStrategyWorkerOnceAndPersist()}>
+                <Button type="primary" loading={strategyPersistenceStatus.loading} icon={<Cpu size={16} />} onClick={() => void handleRunWorker()}>
                   运行Worker并入库
                 </Button>
                 <Button onClick={() => void evaluateStrategyMonitors()}>重新计算策略</Button>

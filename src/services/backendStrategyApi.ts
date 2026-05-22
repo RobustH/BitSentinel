@@ -6,6 +6,7 @@ import type {
   StrategyEvaluationResult,
   StrategyInstance,
   StrategyState,
+  StrategyWorkerRunSummary,
   TimeframeSlotKey,
 } from "../types";
 
@@ -116,14 +117,6 @@ type FetchBackendStrategyEvaluationsInput = {
 
 type RunBackendStrategyWorkerInput = FetchBackendStrategyEvaluationsInput & {
   strategyStates: StrategyState[];
-};
-
-type BackendStrategyWorkerRunSummary = {
-  runId: string;
-  evaluatedCount: number;
-  generatedSignalCount: number;
-  upsertedStateCount: number;
-  insertedSignalCount: number;
 };
 
 type BackendPersistedStrategyData = {
@@ -266,7 +259,7 @@ export async function fetchBackendStrategyEvaluations(
 
 export async function runBackendStrategyWorkerOnceAndPersist(
   input: RunBackendStrategyWorkerInput,
-): Promise<BackendStrategyWorkerRunSummary> {
+): Promise<StrategyWorkerRunSummary> {
   const response = await fetch(`${BACKEND_API_BASE_URL}/api/strategy/worker/run-once?persist=true`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -42,6 +42,7 @@ import type {
   StrategyEvaluationResult,
   StrategyState,
   StrategyTemplate,
+  StrategyWorkerRunSummary,
   SymbolMarket,
   TimeframeDecision,
   TimeframeSlotTemplate,
@@ -79,7 +80,7 @@ type AppState = {
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshPersistedStrategyData: () => Promise<void>;
-  runStrategyWorkerOnceAndPersist: () => Promise<void>;
+  runStrategyWorkerOnceAndPersist: () => Promise<StrategyWorkerRunSummary | null>;
   refreshDatabaseConnectionStatus: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => Promise<void>;
@@ -498,6 +499,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           lastWorkerRun: workerRun,
         },
       });
+      return workerRun;
     } catch (error) {
       set({
         strategyPersistenceStatus: {
@@ -506,6 +508,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           error: error instanceof Error ? error.message : "后端策略 Worker 运行失败",
         },
       });
+      return null;
     }
   },
   refreshDatabaseConnectionStatus: async () => {
