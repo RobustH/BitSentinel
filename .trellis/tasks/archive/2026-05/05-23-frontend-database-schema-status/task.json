@@ -3,7 +3,7 @@
   "name": "frontend-database-schema-status",
   "title": "前端展示数据库表状态",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "frontend",
   "scope": "database-schema-diagnostics",
   "package": "src",
