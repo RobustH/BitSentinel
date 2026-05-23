@@ -257,6 +257,23 @@ export type DatabaseConnectionStatus = {
   } | null;
 };
 
+export type DatabaseSchemaStatus = {
+  ready: boolean | null;
+  loading: boolean;
+  lastCheckedAt: string | null;
+  error: string | null;
+  message: string | null;
+  target: {
+    driver: string;
+    host: string | null;
+    port: number | null;
+    database: string | null;
+  } | null;
+  managedTables: string[];
+  existingTables: string[];
+  missingTables: string[];
+};
+
 export type MarketStreamStatus = {
   status: "idle" | "connecting" | "connected" | "disconnected" | "error";
   lastEventAt: string | null;

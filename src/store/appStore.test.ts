@@ -6,7 +6,7 @@ import {
   fetchBackendStrategyWorkerRuns,
   runBackendStrategyWorkerOnceAndPersist,
 } from "../services/backendStrategyApi";
-import { fetchBackendDatabaseConnectionStatus } from "../services/backendSystemApi";
+import { fetchBackendDatabaseConnectionStatus, fetchBackendDatabaseSchemaStatus } from "../services/backendSystemApi";
 import { createBitSentinelStore } from "./appStore";
 
 vi.mock("../services/backendMarketApi", () => ({
@@ -24,6 +24,7 @@ vi.mock("../services/backendStrategyApi", () => ({
 
 vi.mock("../services/backendSystemApi", () => ({
   fetchBackendDatabaseConnectionStatus: vi.fn(),
+  fetchBackendDatabaseSchemaStatus: vi.fn(),
 }));
 
 const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummary);
@@ -33,6 +34,7 @@ const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedS
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
 const mockedFetchBackendStrategyWorkerRuns = vi.mocked(fetchBackendStrategyWorkerRuns);
 const mockedFetchBackendDatabaseConnectionStatus = vi.mocked(fetchBackendDatabaseConnectionStatus);
+const mockedFetchBackendDatabaseSchemaStatus = vi.mocked(fetchBackendDatabaseSchemaStatus);
 const mockedRunBackendStrategyWorkerOnceAndPersist = vi.mocked(runBackendStrategyWorkerOnceAndPersist);
 
 describe("strategy assembly mock store", () => {
@@ -44,6 +46,7 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendStrategyEvaluations.mockReset();
     mockedFetchBackendStrategyWorkerRuns.mockReset();
     mockedFetchBackendDatabaseConnectionStatus.mockReset();
+    mockedFetchBackendDatabaseSchemaStatus.mockReset();
     mockedRunBackendStrategyWorkerOnceAndPersist.mockReset();
   });
 
@@ -440,5 +443,57 @@ describe("strategy assembly mock store", () => {
 
     expect(store.getState().databaseConnectionStatus.connected).toBeNull();
     expect(store.getState().databaseConnectionStatus.error).toBe("database unavailable");
+  });
+
+  it("refreshes backend database schema status", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendDatabaseSchemaStatus.mockResolvedValue({
+      ready: false,
+      loading: false,
+      lastCheckedAt: "2026-05-23 10:30:00",
+      error: "Database schema is missing managed tables",
+      message: "Database schema is missing managed tables",
+      target: {
+        driver: "postgresql+psycopg",
+        host: "159.75.180.231",
+        port: 35432,
+        database: "bitsentinel",
+      },
+      managedTables: ["strategy_states", "strategy_signals", "strategy_worker_runs"],
+      existingTables: ["strategy_states"],
+      missingTables: ["strategy_signals", "strategy_worker_runs"],
+    });
+
+    await store.getState().refreshDatabaseSchemaStatus();
+
+    expect(mockedFetchBackendDatabaseSchemaStatus).toHaveBeenCalled();
+    expect(store.getState().databaseSchemaStatus).toMatchObject({
+      ready: false,
+      missingTables: ["strategy_signals", "strategy_worker_runs"],
+      target: { database: "bitsentinel" },
+    });
+  });
+
+  it("keeps previous database schema status when refresh fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendDatabaseSchemaStatus.mockResolvedValueOnce({
+      ready: true,
+      loading: false,
+      lastCheckedAt: "2026-05-23 10:30:00",
+      error: null,
+      message: "Database schema is ready",
+      target: null,
+      managedTables: ["strategy_states"],
+      existingTables: ["strategy_states"],
+      missingTables: [],
+    });
+    await store.getState().refreshDatabaseSchemaStatus();
+    const previousExistingTables = store.getState().databaseSchemaStatus.existingTables;
+
+    mockedFetchBackendDatabaseSchemaStatus.mockRejectedValue(new Error("schema unavailable"));
+    await store.getState().refreshDatabaseSchemaStatus();
+
+    expect(store.getState().databaseSchemaStatus.existingTables).toBe(previousExistingTables);
+    expect(store.getState().databaseSchemaStatus.error).toBe("schema unavailable");
   });
 });

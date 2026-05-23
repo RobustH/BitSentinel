@@ -3417,7 +3417,12 @@ function DataWarehouse() {
 }
 
 function SettingsPage() {
-  const { databaseConnectionStatus, refreshDatabaseConnectionStatus } = useAppStore();
+  const {
+    databaseConnectionStatus,
+    databaseSchemaStatus,
+    refreshDatabaseConnectionStatus,
+    refreshDatabaseSchemaStatus,
+  } = useAppStore();
   const settings = [
     ["交易所配置", "Binance Futures，只读 API Key，后端加密保存。"],
     ["推送配置", "强信号即时推送，观察信号进入队列，重复信号静默。"],
@@ -3453,6 +3458,53 @@ function SettingsPage() {
           <Descriptions.Item label="结果" span={2}>{databaseConnectionStatus.message ?? databaseConnectionStatus.error ?? "-"}</Descriptions.Item>
         </Descriptions>
         {databaseConnectionStatus.error && <Alert className="section-alert" type="warning" showIcon message="数据库连接测试失败" description={databaseConnectionStatus.error} />}
+      </Card>
+
+      <Card
+        title="数据库表状态"
+        extra={
+          <Button loading={databaseSchemaStatus.loading} icon={<Database size={16} />} onClick={() => void refreshDatabaseSchemaStatus()}>
+            检查表状态
+          </Button>
+        }
+      >
+        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+          <Descriptions.Item label="状态">
+            {databaseSchemaStatus.ready === null ? (
+              <Tag>未检查</Tag>
+            ) : (
+              <Tag color={databaseSchemaStatus.ready ? "green" : "gold"}>
+                {databaseSchemaStatus.ready ? "表已就绪" : "表未就绪"}
+              </Tag>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label="最近检查">{databaseSchemaStatus.lastCheckedAt ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="结果">{databaseSchemaStatus.message ?? databaseSchemaStatus.error ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label="受管理表" span={3}>
+            <Space wrap>
+              {databaseSchemaStatus.managedTables.length
+                ? databaseSchemaStatus.managedTables.map((table) => <Tag key={table}>{table}</Tag>)
+                : <Text type="secondary">尚未获取</Text>}
+            </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label="已存在表" span={3}>
+            <Space wrap>
+              {databaseSchemaStatus.existingTables.length
+                ? databaseSchemaStatus.existingTables.map((table) => <Tag color="green" key={table}>{table}</Tag>)
+                : <Text type="secondary">无</Text>}
+            </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label="缺失表" span={3}>
+            <Space wrap>
+              {databaseSchemaStatus.missingTables.length
+                ? databaseSchemaStatus.missingTables.map((table) => <Tag color="red" key={table}>{table}</Tag>)
+                : <Text type="secondary">无</Text>}
+            </Space>
+          </Descriptions.Item>
+        </Descriptions>
+        {databaseSchemaStatus.error && (
+          <Alert className="section-alert" type="warning" showIcon message="数据库表状态检查失败" description={databaseSchemaStatus.error} />
+        )}
       </Card>
 
       <Row gutter={[16, 16]}>

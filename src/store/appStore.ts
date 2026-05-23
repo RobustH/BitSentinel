@@ -21,7 +21,7 @@ import {
   fetchBackendStrategyWorkerRuns,
   runBackendStrategyWorkerOnceAndPersist,
 } from "../services/backendStrategyApi";
-import { fetchBackendDatabaseConnectionStatus } from "../services/backendSystemApi";
+import { fetchBackendDatabaseConnectionStatus, fetchBackendDatabaseSchemaStatus } from "../services/backendSystemApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
 import { evaluateAllStrategyInstances } from "../services/strategyEvaluator";
 import type {
@@ -30,6 +30,7 @@ import type {
   BinanceTickerUpdate,
   CreateStrategyPayload,
   DatabaseConnectionStatus,
+  DatabaseSchemaStatus,
   AlertRule,
   KlinePoint,
   KlineRefreshStatus,
@@ -78,6 +79,7 @@ type AppState = {
   indicatorRefreshStatus: IndicatorRefreshStatus;
   strategyPersistenceStatus: StrategyPersistenceStatus;
   databaseConnectionStatus: DatabaseConnectionStatus;
+  databaseSchemaStatus: DatabaseSchemaStatus;
   marketStreamStatus: MarketStreamStatus;
   setActiveSection: (section: string) => void;
   selectSignal: (signalId: string | null) => void;
@@ -88,6 +90,7 @@ type AppState = {
   refreshWorkerRunHistory: () => Promise<void>;
   runStrategyWorkerOnceAndPersist: () => Promise<StrategyWorkerRunSummary | null>;
   refreshDatabaseConnectionStatus: () => Promise<void>;
+  refreshDatabaseSchemaStatus: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => Promise<void>;
   startBinanceMarketStream: () => void;
@@ -299,6 +302,17 @@ const initialState = {
     error: null,
     message: null,
     target: null,
+  },
+  databaseSchemaStatus: {
+    ready: null,
+    loading: false,
+    lastCheckedAt: null,
+    error: null,
+    message: null,
+    target: null,
+    managedTables: [],
+    existingTables: [],
+    missingTables: [],
   },
   marketStreamStatus: {
     status: "idle" as const,
@@ -569,6 +583,28 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           ...get().databaseConnectionStatus,
           loading: false,
           error: error instanceof Error ? error.message : "后端数据库连接测试失败",
+        },
+      });
+    }
+  },
+  refreshDatabaseSchemaStatus: async () => {
+    set({
+      databaseSchemaStatus: {
+        ...get().databaseSchemaStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const status = await fetchBackendDatabaseSchemaStatus();
+      set({ databaseSchemaStatus: status });
+    } catch (error) {
+      set({
+        databaseSchemaStatus: {
+          ...get().databaseSchemaStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端数据库表状态检查失败",
         },
       });
     }
