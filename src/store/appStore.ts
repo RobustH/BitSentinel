@@ -91,6 +91,7 @@ type AppState = {
   runStrategyWorkerOnceAndPersist: () => Promise<StrategyWorkerRunSummary | null>;
   refreshDatabaseConnectionStatus: () => Promise<void>;
   refreshDatabaseSchemaStatus: () => Promise<void>;
+  diagnoseDatabaseReadiness: () => Promise<void>;
   refreshBinanceMarketData: () => Promise<void>;
   evaluateStrategyMonitors: () => Promise<void>;
   startBinanceMarketStream: () => void;
@@ -608,6 +609,11 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
         },
       });
     }
+  },
+  diagnoseDatabaseReadiness: async () => {
+    await get().refreshDatabaseConnectionStatus();
+    if (get().databaseConnectionStatus.connected !== true) return;
+    await get().refreshDatabaseSchemaStatus();
   },
   refreshBinanceMarketData: async () => {
     const targetSymbols = get().symbols.map((item) => item.symbol);

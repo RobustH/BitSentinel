@@ -496,4 +496,53 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().databaseSchemaStatus.existingTables).toBe(previousExistingTables);
     expect(store.getState().databaseSchemaStatus.error).toBe("schema unavailable");
   });
+
+  it("diagnoses database readiness by checking connection before schema", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendDatabaseConnectionStatus.mockResolvedValue({
+      connected: true,
+      loading: false,
+      lastCheckedAt: "2026-05-23 10:40:00",
+      error: null,
+      message: "Database connection succeeded",
+      target: null,
+    });
+    mockedFetchBackendDatabaseSchemaStatus.mockResolvedValue({
+      ready: true,
+      loading: false,
+      lastCheckedAt: "2026-05-23 10:40:01",
+      error: null,
+      message: "Database schema is ready",
+      target: null,
+      managedTables: ["strategy_states"],
+      existingTables: ["strategy_states"],
+      missingTables: [],
+    });
+
+    await store.getState().diagnoseDatabaseReadiness();
+
+    expect(mockedFetchBackendDatabaseConnectionStatus).toHaveBeenCalled();
+    expect(mockedFetchBackendDatabaseSchemaStatus).toHaveBeenCalled();
+    expect(store.getState().databaseConnectionStatus.connected).toBe(true);
+    expect(store.getState().databaseSchemaStatus.ready).toBe(true);
+  });
+
+  it("does not check schema when database readiness connection check fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendDatabaseConnectionStatus.mockResolvedValue({
+      connected: false,
+      loading: false,
+      lastCheckedAt: "2026-05-23 10:40:00",
+      error: "Database connection failed: OperationalError",
+      message: "Database connection failed: OperationalError",
+      target: null,
+    });
+
+    await store.getState().diagnoseDatabaseReadiness();
+
+    expect(mockedFetchBackendDatabaseConnectionStatus).toHaveBeenCalled();
+    expect(mockedFetchBackendDatabaseSchemaStatus).not.toHaveBeenCalled();
+    expect(store.getState().databaseConnectionStatus.connected).toBe(false);
+    expect(store.getState().databaseSchemaStatus.ready).toBeNull();
+  });
 });

@@ -3420,6 +3420,7 @@ function SettingsPage() {
   const {
     databaseConnectionStatus,
     databaseSchemaStatus,
+    diagnoseDatabaseReadiness,
     refreshDatabaseConnectionStatus,
     refreshDatabaseSchemaStatus,
   } = useAppStore();
@@ -3432,6 +3433,23 @@ function SettingsPage() {
 
   return (
     <Space direction="vertical" size={16} className="page-stack">
+      <Card>
+        <Flex justify="space-between" align="center" gap={16} wrap>
+          <Space direction="vertical" size={4}>
+            <Title level={4} className="page-title">数据库诊断</Title>
+            <Text type="secondary">按顺序测试后端数据库连接和受管理表状态。</Text>
+          </Space>
+          <Button
+            type="primary"
+            loading={databaseConnectionStatus.loading || databaseSchemaStatus.loading}
+            icon={<Database size={16} />}
+            onClick={() => void diagnoseDatabaseReadiness()}
+          >
+            一键诊断
+          </Button>
+        </Flex>
+      </Card>
+
       <Card
         title="数据库连接"
         extra={
