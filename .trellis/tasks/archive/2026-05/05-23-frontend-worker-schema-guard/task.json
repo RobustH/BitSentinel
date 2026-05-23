@@ -3,7 +3,7 @@
   "name": "frontend-worker-schema-guard",
   "title": "Worker入库前置诊断提示",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "frontend",
   "scope": "worker-persistence-guard",
   "package": "src",
