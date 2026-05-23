@@ -740,3 +740,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: 前端展示Worker运行历史
+
+**Date**: 2026-05-23
+**Task**: 前端展示Worker运行历史
+**Branch**: `main`
+
+### Summary
+
+前端接入 Worker 运行历史查询，策略监控页展示历史表格，并在 Worker 入库成功后自动刷新后端历史。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `646cec3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
