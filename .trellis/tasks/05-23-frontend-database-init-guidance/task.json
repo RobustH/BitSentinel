@@ -1,0 +1,29 @@
+{
+  "id": "frontend-database-init-guidance",
+  "name": "frontend-database-init-guidance",
+  "title": "前端数据库初始化指引",
+  "description": "",
+  "status": "done",
+  "dev_type": "frontend",
+  "scope": "database-schema-diagnostics",
+  "package": "src",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "03bdce8",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/App.tsx",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "数据库表缺失时在系统设置页展示只读后端初始化命令提示，不提供网页建表入口。",
+  "meta": {}
+}

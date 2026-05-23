@@ -1,0 +1,1 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查初始化指引是否只读、无凭据、无建表副作用，并且仅在缺表时展示。"}

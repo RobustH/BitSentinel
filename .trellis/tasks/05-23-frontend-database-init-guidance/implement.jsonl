@@ -1,0 +1,1 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"前端数据库表状态只允许只读诊断，不得提供网页建表或保存数据库凭据。"}
