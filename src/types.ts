@@ -232,6 +232,7 @@ export type StrategyPersistenceStatus = {
   error: string | null;
   lastWorkerRun: StrategyWorkerRunSummary | null;
   workerRunHistory: StrategyWorkerRunSummary[];
+  schedulerStatus: StrategyWorkerSchedulerStatus;
 };
 
 export type StrategyWorkerRunSummary = {
@@ -241,6 +242,20 @@ export type StrategyWorkerRunSummary = {
   generatedSignalCount: number;
   upsertedStateCount: number;
   insertedSignalCount: number;
+};
+
+export type StrategyWorkerSchedulerStatus = {
+  running: boolean;
+  intervalSeconds: number | null;
+  persist: boolean;
+  lastStartedAt: string | null;
+  lastStoppedAt: string | null;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  lastRunId: string | null;
+  lastError: string | null;
+  runCount: number;
+  skippedCount: number;
 };
 
 export type DatabaseConnectionStatus = {

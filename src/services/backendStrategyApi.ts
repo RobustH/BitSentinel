@@ -7,6 +7,7 @@ import type {
   StrategyInstance,
   StrategyState,
   StrategyWorkerRunSummary,
+  StrategyWorkerSchedulerStatus,
   TimeframeSlotKey,
 } from "../types";
 
@@ -117,6 +118,20 @@ type BackendPersistedStrategyWorkerRun = {
   inserted_signal_count: number;
 };
 
+type BackendStrategyWorkerSchedulerStatus = {
+  running: boolean;
+  interval_seconds: number | null;
+  persist: boolean;
+  last_started_at: string | null;
+  last_stopped_at: string | null;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_run_id: string | null;
+  last_error: string | null;
+  run_count: number;
+  skipped_count: number;
+};
+
 type FetchBackendStrategyEvaluationsInput = {
   strategyInstances: StrategyInstance[];
   marketSeries: Record<string, KlinePoint[]>;
@@ -127,6 +142,11 @@ type FetchBackendStrategyEvaluationsInput = {
 
 type RunBackendStrategyWorkerInput = FetchBackendStrategyEvaluationsInput & {
   strategyStates: StrategyState[];
+};
+
+type StartBackendStrategyWorkerSchedulerInput = RunBackendStrategyWorkerInput & {
+  intervalSeconds?: number;
+  persist?: boolean;
 };
 
 type BackendPersistedStrategyData = {
@@ -261,6 +281,20 @@ const toFrontendWorkerRun = (row: BackendPersistedStrategyWorkerRun): StrategyWo
   insertedSignalCount: row.inserted_signal_count,
 });
 
+const toFrontendSchedulerStatus = (row: BackendStrategyWorkerSchedulerStatus): StrategyWorkerSchedulerStatus => ({
+  running: row.running,
+  intervalSeconds: row.interval_seconds,
+  persist: row.persist,
+  lastStartedAt: row.last_started_at,
+  lastStoppedAt: row.last_stopped_at,
+  lastRunAt: row.last_run_at,
+  nextRunAt: row.next_run_at,
+  lastRunId: row.last_run_id,
+  lastError: row.last_error,
+  runCount: row.run_count,
+  skippedCount: row.skipped_count,
+});
+
 export async function fetchBackendStrategyEvaluations(
   input: FetchBackendStrategyEvaluationsInput,
 ): Promise<StrategyEvaluationResult[]> {
@@ -319,4 +353,41 @@ export async function fetchBackendPersistedStrategyData(): Promise<BackendPersis
 export async function fetchBackendStrategyWorkerRuns(limit = 10): Promise<StrategyWorkerRunSummary[]> {
   const payload = await requestJson<BackendPersistedStrategyWorkerRun[]>(`/api/strategy/worker/runs?limit=${limit}`);
   return payload.map(toFrontendWorkerRun);
+}
+
+export async function fetchBackendStrategyWorkerSchedulerStatus(): Promise<StrategyWorkerSchedulerStatus> {
+  const payload = await requestJson<BackendStrategyWorkerSchedulerStatus>("/api/strategy/worker/scheduler/status");
+  return toFrontendSchedulerStatus(payload);
+}
+
+export async function startBackendStrategyWorkerScheduler({
+  intervalSeconds = 60,
+  persist = true,
+  ...input
+}: StartBackendStrategyWorkerSchedulerInput): Promise<StrategyWorkerSchedulerStatus> {
+  const response = await fetch(`${BACKEND_API_BASE_URL}/api/strategy/worker/scheduler/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      worker_request: toBackendWorkerRequest(input),
+      interval_seconds: intervalSeconds,
+      persist,
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Backend strategy worker scheduler start failed: ${response.status}`);
+
+  const payload = (await response.json()) as BackendStrategyWorkerSchedulerStatus;
+  return toFrontendSchedulerStatus(payload);
+}
+
+export async function stopBackendStrategyWorkerScheduler(): Promise<StrategyWorkerSchedulerStatus> {
+  const response = await fetch(`${BACKEND_API_BASE_URL}/api/strategy/worker/scheduler/stop`, {
+    method: "POST",
+  });
+
+  if (!response.ok) throw new Error(`Backend strategy worker scheduler stop failed: ${response.status}`);
+
+  const payload = (await response.json()) as BackendStrategyWorkerSchedulerStatus;
+  return toFrontendSchedulerStatus(payload);
 }

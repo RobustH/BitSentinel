@@ -1554,7 +1554,10 @@ function StrategyMonitorCenter() {
     evaluateStrategyMonitors,
     refreshPersistedStrategyData,
     refreshWorkerRunHistory,
+    refreshWorkerSchedulerStatus,
     runStrategyWorkerOnceAndPersist,
+    startWorkerScheduler,
+    stopWorkerScheduler,
     triggerMockSignal,
     selectSignal,
   } = useAppStore();
@@ -1607,9 +1610,10 @@ function StrategyMonitorCenter() {
         strongSignalCount: relatedSignals.filter((signal) => signal.strength === "strong").length,
         evaluation,
       };
-    });
+  });
 
   const activeSummary = strategySummaries.find((item) => item.instance.id === activeInstanceId);
+  const schedulerStatus = strategyPersistenceStatus.schedulerStatus;
   const handleRunWorker = async () => {
     if (databaseSchemaStatus.ready === false && databaseSchemaStatus.missingTables.length > 0) {
       notification.error({
@@ -1634,6 +1638,50 @@ function StrategyMonitorCenter() {
     notification.success({
       message: "Worker已运行并入库",
       description: `评估 ${result.evaluatedCount} 条，更新状态 ${result.upsertedStateCount} 条，插入信号 ${result.insertedSignalCount} 条。`,
+      placement: "bottomRight",
+    });
+  };
+  const handleStartWorkerScheduler = async () => {
+    if (databaseSchemaStatus.ready === false && databaseSchemaStatus.missingTables.length > 0) {
+      notification.error({
+        message: "数据库表未初始化",
+        description: `缺失表：${databaseSchemaStatus.missingTables.join("、")}。请先在后端目录执行 python -m app.scripts.init_db。`,
+        placement: "bottomRight",
+        duration: 8,
+      });
+      return;
+    }
+
+    const result = await startWorkerScheduler();
+    if (!result) {
+      notification.error({
+        message: "Worker定时调度启动失败",
+        description: useAppStore.getState().strategyPersistenceStatus.error ?? "请检查后端服务和数据库连接。",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    notification.success({
+      message: "Worker定时调度已启动",
+      description: `间隔 ${result.intervalSeconds ?? 60} 秒，持久化${result.persist ? "开启" : "关闭"}。`,
+      placement: "bottomRight",
+    });
+  };
+
+  const handleStopWorkerScheduler = async () => {
+    const result = await stopWorkerScheduler();
+    if (!result) {
+      notification.error({
+        message: "Worker定时调度停止失败",
+        description: useAppStore.getState().strategyPersistenceStatus.error ?? "请检查后端服务。",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    notification.success({
+      message: "Worker定时调度已停止",
       placement: "bottomRight",
     });
   };
@@ -1785,6 +1833,46 @@ function StrategyMonitorCenter() {
           {strategyPersistenceStatus.error && (
             <Alert type="warning" showIcon message="后端持久化数据同步失败" description={strategyPersistenceStatus.error} />
           )}
+
+          <Card
+            title="Worker定时调度"
+            extra={
+              <Space wrap>
+                <Button loading={strategyPersistenceStatus.loading} icon={<RefreshCw size={16} />} onClick={() => void refreshWorkerSchedulerStatus()}>
+                  刷新状态
+                </Button>
+                {schedulerStatus.running ? (
+                  <Button danger loading={strategyPersistenceStatus.loading} onClick={() => void handleStopWorkerScheduler()}>
+                    停止调度
+                  </Button>
+                ) : (
+                  <Button type="primary" loading={strategyPersistenceStatus.loading} icon={<Cpu size={16} />} onClick={() => void handleStartWorkerScheduler()}>
+                    启动定时调度
+                  </Button>
+                )}
+              </Space>
+            }
+          >
+            <Row gutter={[12, 12]}>
+              <Col xs={12} md={6}>
+                <Statistic title="状态" value={schedulerStatus.running ? "运行中" : "未启动"} valueStyle={{ color: schedulerStatus.running ? "#52c41a" : "#8c8c8c" }} />
+              </Col>
+              <Col xs={12} md={6}><Statistic title="间隔秒数" value={schedulerStatus.intervalSeconds ?? "-"} /></Col>
+              <Col xs={12} md={6}><Statistic title="运行次数" value={schedulerStatus.runCount} /></Col>
+              <Col xs={12} md={6}><Statistic title="跳过次数" value={schedulerStatus.skippedCount} /></Col>
+            </Row>
+            <Descriptions className="section-descriptions" column={{ xs: 1, md: 2 }} size="small">
+              <Descriptions.Item label="最近启动">{schedulerStatus.lastStartedAt ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="最近停止">{schedulerStatus.lastStoppedAt ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="最近运行">{schedulerStatus.lastRunAt ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="下次运行">{schedulerStatus.nextRunAt ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="最近运行ID">{schedulerStatus.lastRunId ?? "-"}</Descriptions.Item>
+              <Descriptions.Item label="持久化">{schedulerStatus.persist ? "开启" : "关闭"}</Descriptions.Item>
+            </Descriptions>
+            {schedulerStatus.lastError && (
+              <Alert className="section-alert" type="warning" showIcon message="最近一次调度运行失败" description={schedulerStatus.lastError} />
+            )}
+          </Card>
 
           {strategyPersistenceStatus.lastWorkerRun && (
             <Card title="最近一次Worker入库结果">

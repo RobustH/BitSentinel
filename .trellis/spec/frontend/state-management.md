@@ -589,6 +589,68 @@ void refreshWorkerRunHistory();
 
 ---
 
+## 前端 Worker 定时调度控制约定
+
+### 1. Scope / Trigger
+- Trigger: 后端提供 Worker 调度 API，前端需要在策略监控页启动、停止和查看调度状态。
+- Scope: 只做手动启停和状态刷新，不做前端轮询、调度配置持久化或复杂调度表单。
+
+### 2. Signatures
+- API client：
+  - `startBackendStrategyWorkerScheduler(input)`
+  - `stopBackendStrategyWorkerScheduler()`
+  - `fetchBackendStrategyWorkerSchedulerStatus()`
+- Store action：
+  - `startWorkerScheduler(): Promise<StrategyWorkerSchedulerStatus | null>`
+  - `stopWorkerScheduler(): Promise<StrategyWorkerSchedulerStatus | null>`
+  - `refreshWorkerSchedulerStatus(): Promise<void>`
+- Store state：`strategyPersistenceStatus.schedulerStatus`
+- Backend endpoints：
+  - `POST /api/strategy/worker/scheduler/start`
+  - `POST /api/strategy/worker/scheduler/stop`
+  - `GET /api/strategy/worker/scheduler/status`
+
+### 3. Contracts
+- API client 负责 DTO 转换：
+  - `worker_request` 复用现有 Worker 请求转换。
+  - `interval_seconds` -> `intervalSeconds`
+  - `last_started_at` -> `lastStartedAt`
+  - `last_stopped_at` -> `lastStoppedAt`
+  - `last_run_at` -> `lastRunAt`
+  - `next_run_at` -> `nextRunAt`
+  - `last_run_id` -> `lastRunId`
+  - `last_error` -> `lastError`
+  - `run_count` -> `runCount`
+  - `skipped_count` -> `skippedCount`
+- Store action 启动调度时使用当前 `strategyInstances`、`marketSeries`、`moneyFlows`、`signals`、`strategyStates` 组装 Worker 请求。
+- 第一版前端固定以 `intervalSeconds = 60`、`persist = true` 启动调度。
+- 成功启停或刷新状态时写入 `strategyPersistenceStatus.schedulerStatus`，并标记 `source = backend`。
+- 调度 API 失败时保留旧调度状态，只写入 `strategyPersistenceStatus.error`。
+- 页面组件只能调用 store action，不得直接请求调度 API。
+- 页面若已知 `databaseSchemaStatus.ready === false` 且存在 `missingTables`，应阻止启动 `persist=true` 调度，并提示 `python -m app.scripts.init_db`。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 启动成功 | 写入 running 状态并通知用户 |
+| 停止成功 | 写入 stopped 状态并通知用户 |
+| 状态刷新成功 | 展示最近运行、下次运行、运行次数和错误 |
+| API 请求失败 | 保留旧状态，只记录错误 |
+| 已知缺表 | 阻止启动调度，提示初始化命令 |
+
+### 5. Good/Base/Bad Cases
+- Good: 策略监控页按钮只调用 `startWorkerScheduler` / `stopWorkerScheduler`。
+- Base: 用户手动刷新调度状态查看后台运行结果。
+- Bad: 组件直接 `fetch("/api/strategy/worker/scheduler/start")`，或调度失败时清空运行历史。
+
+### 6. Tests Required
+- Store 测试覆盖启动、停止、刷新状态。
+- 失败分支测试覆盖旧调度状态保留。
+- TypeScript build 必须通过。
+
+
+---
+
 ## 后端数据库连接状态接入约定
 
 ### 1. Scope / Trigger

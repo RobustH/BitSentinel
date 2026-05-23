@@ -19,7 +19,10 @@ import {
   fetchBackendPersistedStrategyData,
   fetchBackendStrategyEvaluations,
   fetchBackendStrategyWorkerRuns,
+  fetchBackendStrategyWorkerSchedulerStatus,
   runBackendStrategyWorkerOnceAndPersist,
+  startBackendStrategyWorkerScheduler,
+  stopBackendStrategyWorkerScheduler,
 } from "../services/backendStrategyApi";
 import { fetchBackendDatabaseConnectionStatus, fetchBackendDatabaseSchemaStatus } from "../services/backendSystemApi";
 import { startBinanceTickerStream, type StopMarketStream } from "../services/binanceWebSocket";
@@ -47,6 +50,7 @@ import type {
   StrategyInstance,
   StrategyEvaluationResult,
   StrategyState,
+  StrategyWorkerSchedulerStatus,
   StrategyTemplate,
   StrategyWorkerRunSummary,
   SymbolMarket,
@@ -89,6 +93,9 @@ type AppState = {
   refreshPersistedStrategyData: () => Promise<void>;
   refreshWorkerRunHistory: () => Promise<void>;
   runStrategyWorkerOnceAndPersist: () => Promise<StrategyWorkerRunSummary | null>;
+  refreshWorkerSchedulerStatus: () => Promise<void>;
+  startWorkerScheduler: () => Promise<StrategyWorkerSchedulerStatus | null>;
+  stopWorkerScheduler: () => Promise<StrategyWorkerSchedulerStatus | null>;
   refreshDatabaseConnectionStatus: () => Promise<void>;
   refreshDatabaseSchemaStatus: () => Promise<void>;
   diagnoseDatabaseReadiness: () => Promise<void>;
@@ -159,6 +166,20 @@ const formatQuoteVolume = (value: number) => {
 };
 
 const nowText = () => new Date().toLocaleString("zh-CN", { hour12: false });
+
+const defaultWorkerSchedulerStatus: StrategyWorkerSchedulerStatus = {
+  running: false,
+  intervalSeconds: null,
+  persist: true,
+  lastStartedAt: null,
+  lastStoppedAt: null,
+  lastRunAt: null,
+  nextRunAt: null,
+  lastRunId: null,
+  lastError: null,
+  runCount: 0,
+  skippedCount: 0,
+};
 
 const applyTickerToKline = (series: KlinePoint[] = [], update: BinanceTickerUpdate): KlinePoint[] => {
   if (!series.length) return series;
@@ -295,6 +316,7 @@ const initialState = {
     error: null,
     lastWorkerRun: null,
     workerRunHistory: [],
+    schedulerStatus: defaultWorkerSchedulerStatus,
   },
   databaseConnectionStatus: {
     connected: null,
@@ -561,6 +583,111 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           ...get().strategyPersistenceStatus,
           loading: false,
           error: error instanceof Error ? error.message : "后端策略 Worker 运行失败",
+        },
+      });
+      return null;
+    }
+  },
+  refreshWorkerSchedulerStatus: async () => {
+    set({
+      strategyPersistenceStatus: {
+        ...get().strategyPersistenceStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const schedulerStatus = await fetchBackendStrategyWorkerSchedulerStatus();
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: schedulerStatus.lastError,
+          schedulerStatus,
+        },
+      });
+    } catch (error) {
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端 Worker 调度状态刷新失败",
+        },
+      });
+    }
+  },
+  startWorkerScheduler: async () => {
+    set({
+      strategyPersistenceStatus: {
+        ...get().strategyPersistenceStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const schedulerStatus = await startBackendStrategyWorkerScheduler({
+        strategyInstances: get().strategyInstances,
+        marketSeries: get().marketSeries,
+        moneyFlows: get().moneyFlows,
+        signals: get().signals,
+        strategyStates: get().strategyStates,
+        intervalSeconds: 60,
+        persist: true,
+      });
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: schedulerStatus.lastError,
+          schedulerStatus,
+        },
+      });
+      return schedulerStatus;
+    } catch (error) {
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端 Worker 定时调度启动失败",
+        },
+      });
+      return null;
+    }
+  },
+  stopWorkerScheduler: async () => {
+    set({
+      strategyPersistenceStatus: {
+        ...get().strategyPersistenceStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const schedulerStatus = await stopBackendStrategyWorkerScheduler();
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          source: "backend",
+          loading: false,
+          lastUpdated: nowText(),
+          error: schedulerStatus.lastError,
+          schedulerStatus,
+        },
+      });
+      return schedulerStatus;
+    } catch (error) {
+      set({
+        strategyPersistenceStatus: {
+          ...get().strategyPersistenceStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端 Worker 定时调度停止失败",
         },
       });
       return null;

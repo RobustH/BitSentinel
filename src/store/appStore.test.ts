@@ -4,7 +4,10 @@ import {
   fetchBackendPersistedStrategyData,
   fetchBackendStrategyEvaluations,
   fetchBackendStrategyWorkerRuns,
+  fetchBackendStrategyWorkerSchedulerStatus,
   runBackendStrategyWorkerOnceAndPersist,
+  startBackendStrategyWorkerScheduler,
+  stopBackendStrategyWorkerScheduler,
 } from "../services/backendStrategyApi";
 import { fetchBackendDatabaseConnectionStatus, fetchBackendDatabaseSchemaStatus } from "../services/backendSystemApi";
 import { createBitSentinelStore } from "./appStore";
@@ -19,7 +22,10 @@ vi.mock("../services/backendStrategyApi", () => ({
   fetchBackendPersistedStrategyData: vi.fn(),
   fetchBackendStrategyEvaluations: vi.fn(),
   fetchBackendStrategyWorkerRuns: vi.fn(),
+  fetchBackendStrategyWorkerSchedulerStatus: vi.fn(),
   runBackendStrategyWorkerOnceAndPersist: vi.fn(),
+  startBackendStrategyWorkerScheduler: vi.fn(),
+  stopBackendStrategyWorkerScheduler: vi.fn(),
 }));
 
 vi.mock("../services/backendSystemApi", () => ({
@@ -33,9 +39,26 @@ const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedStrategyData);
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
 const mockedFetchBackendStrategyWorkerRuns = vi.mocked(fetchBackendStrategyWorkerRuns);
+const mockedFetchBackendStrategyWorkerSchedulerStatus = vi.mocked(fetchBackendStrategyWorkerSchedulerStatus);
 const mockedFetchBackendDatabaseConnectionStatus = vi.mocked(fetchBackendDatabaseConnectionStatus);
 const mockedFetchBackendDatabaseSchemaStatus = vi.mocked(fetchBackendDatabaseSchemaStatus);
 const mockedRunBackendStrategyWorkerOnceAndPersist = vi.mocked(runBackendStrategyWorkerOnceAndPersist);
+const mockedStartBackendStrategyWorkerScheduler = vi.mocked(startBackendStrategyWorkerScheduler);
+const mockedStopBackendStrategyWorkerScheduler = vi.mocked(stopBackendStrategyWorkerScheduler);
+
+const runningSchedulerStatus = {
+  running: true,
+  intervalSeconds: 60,
+  persist: true,
+  lastStartedAt: "2026-05-23T10:50:00Z",
+  lastStoppedAt: null,
+  lastRunAt: "2026-05-23T10:50:01Z",
+  nextRunAt: "2026-05-23T10:51:01Z",
+  lastRunId: "run-scheduled",
+  lastError: null,
+  runCount: 1,
+  skippedCount: 0,
+};
 
 describe("strategy assembly mock store", () => {
   beforeEach(() => {
@@ -45,9 +68,12 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendPersistedStrategyData.mockReset();
     mockedFetchBackendStrategyEvaluations.mockReset();
     mockedFetchBackendStrategyWorkerRuns.mockReset();
+    mockedFetchBackendStrategyWorkerSchedulerStatus.mockReset();
     mockedFetchBackendDatabaseConnectionStatus.mockReset();
     mockedFetchBackendDatabaseSchemaStatus.mockReset();
     mockedRunBackendStrategyWorkerOnceAndPersist.mockReset();
+    mockedStartBackendStrategyWorkerScheduler.mockReset();
+    mockedStopBackendStrategyWorkerScheduler.mockReset();
   });
 
   it("creates a strategy instance and independent states for every mounted symbol", () => {
@@ -407,6 +433,71 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().strategyPersistenceStatus.lastWorkerRun).toBe(previousRun);
     expect(failedResult).toBeNull();
     expect(store.getState().strategyPersistenceStatus.error).toBe("worker unavailable");
+  });
+
+  it("starts backend worker scheduler with current strategy snapshot", async () => {
+    const store = createBitSentinelStore();
+    mockedStartBackendStrategyWorkerScheduler.mockResolvedValue(runningSchedulerStatus);
+
+    const result = await store.getState().startWorkerScheduler();
+
+    expect(mockedStartBackendStrategyWorkerScheduler).toHaveBeenCalledWith({
+      strategyInstances: expect.any(Array),
+      marketSeries: expect.any(Object),
+      moneyFlows: expect.any(Array),
+      signals: expect.any(Array),
+      strategyStates: expect.any(Array),
+      intervalSeconds: 60,
+      persist: true,
+    });
+    expect(result).toMatchObject({ running: true, intervalSeconds: 60, runCount: 1 });
+    expect(store.getState().strategyPersistenceStatus.schedulerStatus).toMatchObject({
+      running: true,
+      lastRunId: "run-scheduled",
+    });
+    expect(store.getState().strategyPersistenceStatus.error).toBeNull();
+  });
+
+  it("refreshes backend worker scheduler status", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendStrategyWorkerSchedulerStatus.mockResolvedValue(runningSchedulerStatus);
+
+    await store.getState().refreshWorkerSchedulerStatus();
+
+    expect(mockedFetchBackendStrategyWorkerSchedulerStatus).toHaveBeenCalled();
+    expect(store.getState().strategyPersistenceStatus.schedulerStatus).toMatchObject({
+      running: true,
+      nextRunAt: "2026-05-23T10:51:01Z",
+    });
+  });
+
+  it("stops backend worker scheduler", async () => {
+    const store = createBitSentinelStore();
+    mockedStopBackendStrategyWorkerScheduler.mockResolvedValue({
+      ...runningSchedulerStatus,
+      running: false,
+      lastStoppedAt: "2026-05-23T10:52:00Z",
+      nextRunAt: null,
+    });
+
+    const result = await store.getState().stopWorkerScheduler();
+
+    expect(mockedStopBackendStrategyWorkerScheduler).toHaveBeenCalled();
+    expect(result).toMatchObject({ running: false, nextRunAt: null });
+    expect(store.getState().strategyPersistenceStatus.schedulerStatus.running).toBe(false);
+  });
+
+  it("keeps previous backend worker scheduler status when refresh fails", async () => {
+    const store = createBitSentinelStore();
+    mockedFetchBackendStrategyWorkerSchedulerStatus.mockResolvedValueOnce(runningSchedulerStatus);
+    await store.getState().refreshWorkerSchedulerStatus();
+    const previousStatus = store.getState().strategyPersistenceStatus.schedulerStatus;
+
+    mockedFetchBackendStrategyWorkerSchedulerStatus.mockRejectedValue(new Error("scheduler unavailable"));
+    await store.getState().refreshWorkerSchedulerStatus();
+
+    expect(store.getState().strategyPersistenceStatus.schedulerStatus).toBe(previousStatus);
+    expect(store.getState().strategyPersistenceStatus.error).toBe("scheduler unavailable");
   });
 
   it("refreshes backend database connection status", async () => {
