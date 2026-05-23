@@ -1,0 +1,1 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"前端系统诊断接口接入必须通过 service + Zustand action，组件不得直接 fetch，失败时保留旧状态。"}

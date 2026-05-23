@@ -1,0 +1,33 @@
+{
+  "id": "frontend-database-schema-status",
+  "name": "frontend-database-schema-status",
+  "title": "前端展示数据库表状态",
+  "description": "",
+  "status": "done",
+  "dev_type": "frontend",
+  "scope": "database-schema-diagnostics",
+  "package": "src",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "3925f3d",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/App.tsx",
+    "src/types.ts",
+    "src/services/backendSystemApi.ts",
+    "src/store/appStore.ts",
+    "src/store/appStore.test.ts",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "系统设置页新增数据库表状态只读诊断，展示 managed/existing/missing 表并保留失败前状态。",
+  "meta": {}
+}
