@@ -1550,6 +1550,7 @@ function StrategyMonitorCenter() {
     moneyFlows,
     signals,
     strategyPersistenceStatus,
+    databaseSchemaStatus,
     evaluateStrategyMonitors,
     refreshPersistedStrategyData,
     refreshWorkerRunHistory,
@@ -1610,6 +1611,16 @@ function StrategyMonitorCenter() {
 
   const activeSummary = strategySummaries.find((item) => item.instance.id === activeInstanceId);
   const handleRunWorker = async () => {
+    if (databaseSchemaStatus.ready === false && databaseSchemaStatus.missingTables.length > 0) {
+      notification.error({
+        message: "数据库表未初始化",
+        description: `缺失表：${databaseSchemaStatus.missingTables.join("、")}。请先在后端目录执行 python -m app.scripts.init_db。`,
+        placement: "bottomRight",
+        duration: 8,
+      });
+      return;
+    }
+
     const result = await runStrategyWorkerOnceAndPersist();
     if (!result) {
       notification.error({
