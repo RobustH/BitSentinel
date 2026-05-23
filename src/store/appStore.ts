@@ -758,11 +758,7 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
 
     try {
       const schedulerStatus = await startBackendStrategyWorkerScheduler({
-        strategyInstances: get().strategyInstances,
-        marketSeries: get().marketSeries,
-        moneyFlows: get().moneyFlows,
-        signals: get().signals,
-        strategyStates: get().strategyStates,
+        configSource: "database",
         intervalSeconds: 60,
         persist: true,
       });

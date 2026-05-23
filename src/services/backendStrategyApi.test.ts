@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StrategyInstance } from "../types";
-import { fetchBackendStrategyInstances, saveBackendStrategyInstances } from "./backendStrategyApi";
+import {
+  fetchBackendStrategyInstances,
+  saveBackendStrategyInstances,
+  startBackendStrategyWorkerScheduler,
+} from "./backendStrategyApi";
 
 const jsonResponse = (payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -88,5 +92,38 @@ describe("backend strategy API", () => {
       slots: { direction_tf: "1d", structure_tf: "4h", trigger_tf: "1h" },
     });
     expect(result[0]).toMatchObject(strategyInstance);
+  });
+
+  it("can start scheduler with database config source without worker snapshot", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        running: true,
+        interval_seconds: 60,
+        persist: true,
+        last_started_at: "2026-05-23T10:00:00Z",
+        last_stopped_at: null,
+        last_run_at: null,
+        next_run_at: "2026-05-23T10:00:00Z",
+        last_run_id: null,
+        last_error: null,
+        run_count: 0,
+        skipped_count: 0,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startBackendStrategyWorkerScheduler({
+      configSource: "database",
+      intervalSeconds: 60,
+      persist: true,
+    });
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(requestInit.body));
+
+    expect(body).toEqual({
+      config_source: "database",
+      interval_seconds: 60,
+      persist: true,
+    });
   });
 });

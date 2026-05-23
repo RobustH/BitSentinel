@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 StrategyStateValue = Literal[
     "idle",
@@ -126,9 +126,16 @@ class StrategyWorkerRunResponse(BaseModel):
 
 
 class StrategyWorkerScheduleRequest(BaseModel):
-    worker_request: StrategyWorkerRunRequest
+    worker_request: StrategyWorkerRunRequest | None = None
+    config_source: Literal["request", "database"] = "request"
     interval_seconds: int = Field(default=60, ge=5, le=86_400)
     persist: bool = True
+
+    @model_validator(mode="after")
+    def validate_worker_request_for_request_source(self) -> "StrategyWorkerScheduleRequest":
+        if self.config_source == "request" and self.worker_request is None:
+            raise ValueError("worker_request is required when config_source is request")
+        return self
 
 
 class StrategyWorkerSchedulerStatus(BaseModel):

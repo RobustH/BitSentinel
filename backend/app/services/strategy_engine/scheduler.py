@@ -5,7 +5,14 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.models.strategy import (
+    ExistingSignalInput,
+    ExistingStrategyStateInput,
+    PersistedStrategyInstance,
+    PersistedStrategySignal,
+    PersistedStrategyState,
+    StrategyInstanceInput,
     StrategyPersistenceResult,
+    StrategyWorkerRunRequest,
     StrategyWorkerScheduleRequest,
     StrategyWorkerSchedulerStatus,
 )
@@ -86,10 +93,14 @@ class StrategyWorkerScheduler:
         session: Session | None = None
         try:
             worker = StrategyWorker(StrategyEvaluator())
-            response = worker.run_once(self._request.worker_request)
+            if self._request.config_source == "database":
+                session = session_factory()
+            request = self._build_worker_request(session)
+            response = worker.run_once(request)
 
             if self._request.persist:
-                session = session_factory()
+                if session is None:
+                    session = session_factory()
                 summary = StrategyPersistenceRepository(session).apply_worker_run(response)
                 session.commit()
                 response.persistence = StrategyPersistenceResult(
@@ -110,9 +121,66 @@ class StrategyWorkerScheduler:
                 session.close()
             self._in_progress = False
 
+    def _build_worker_request(self, session: Session | None) -> StrategyWorkerRunRequest:
+        if self._request is None:
+            raise RuntimeError("Scheduler request is not configured")
+
+        if self._request.config_source == "request":
+            if self._request.worker_request is None:
+                raise RuntimeError("worker_request is required for request config source")
+            return self._request.worker_request
+
+        if session is None:
+            raise RuntimeError("Database config source requires a database session")
+
+        repository = StrategyPersistenceRepository(session)
+        strategy_instances = [
+            _to_strategy_instance_input(instance)
+            for instance in repository.list_strategy_instances()
+            if instance.enabled
+        ]
+        states = [_to_existing_state_input(state) for state in repository.list_states()]
+        signals = [_to_existing_signal_input(signal) for signal in repository.list_signals()]
+
+        return StrategyWorkerRunRequest(
+            strategy_instances=strategy_instances,
+            market_series={},
+            money_flows=[],
+            existing_signals=signals,
+            existing_states=states,
+        )
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _to_strategy_instance_input(instance: PersistedStrategyInstance) -> StrategyInstanceInput:
+    return StrategyInstanceInput(
+        id=instance.id,
+        name=instance.name,
+        symbols=instance.symbols,
+        enabled=instance.enabled,
+        condition_ids=instance.condition_ids,
+        risk_signal_ids=instance.risk_signal_ids,
+        signal_ids_by_slot=instance.signal_ids_by_slot,
+    )
+
+
+def _to_existing_state_input(state: PersistedStrategyState) -> ExistingStrategyStateInput:
+    return ExistingStrategyStateInput(
+        instance_id=state.strategy_instance_id,
+        symbol=state.symbol,
+        state=state.state,
+    )
+
+
+def _to_existing_signal_input(signal: PersistedStrategySignal) -> ExistingSignalInput:
+    return ExistingSignalInput(
+        instance_id=signal.strategy_instance_id,
+        symbol=signal.symbol,
+        strength=signal.strength,
+    )
 
 
 strategy_worker_scheduler = StrategyWorkerScheduler()

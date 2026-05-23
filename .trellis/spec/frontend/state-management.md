@@ -694,7 +694,8 @@ void refreshBackendStrategyInstances();
 
 ### 3. Contracts
 - API client 负责 DTO 转换：
-  - `worker_request` 复用现有 Worker 请求转换。
+  - `configSource` -> `config_source`。
+  - 旧快照模式下 `worker_request` 复用现有 Worker 请求转换。
   - `interval_seconds` -> `intervalSeconds`
   - `last_started_at` -> `lastStartedAt`
   - `last_stopped_at` -> `lastStoppedAt`
@@ -704,7 +705,8 @@ void refreshBackendStrategyInstances();
   - `last_error` -> `lastError`
   - `run_count` -> `runCount`
   - `skipped_count` -> `skippedCount`
-- Store action 启动调度时使用当前 `strategyInstances`、`marketSeries`、`moneyFlows`、`signals`、`strategyStates` 组装 Worker 请求。
+- Store action 启动调度时默认使用 `configSource = "database"`，让后端从 `strategy_instances` 读取已启用策略配置。
+- 前端 API client 仍保留旧快照启动能力，用于测试或后续调试，但页面主路径不发送完整策略快照。
 - 第一版前端固定以 `intervalSeconds = 60`、`persist = true` 启动调度。
 - 成功启停或刷新状态时写入 `strategyPersistenceStatus.schedulerStatus`，并标记 `source = backend`。
 - 调度 API 失败时保留旧调度状态，只写入 `strategyPersistenceStatus.error`。
@@ -719,14 +721,16 @@ void refreshBackendStrategyInstances();
 | 状态刷新成功 | 展示最近运行、下次运行、运行次数和错误 |
 | API 请求失败 | 保留旧状态，只记录错误 |
 | 已知缺表 | 阻止启动调度，提示初始化命令 |
+| 后端无 enabled 策略 | 调度可启动，后端本轮评估数可能为 0 |
 
 ### 5. Good/Base/Bad Cases
-- Good: 策略监控页按钮只调用 `startWorkerScheduler` / `stopWorkerScheduler`。
+- Good: 策略监控页按钮只调用 `startWorkerScheduler` / `stopWorkerScheduler`，启动请求体只包含调度配置。
 - Base: 用户手动刷新调度状态查看后台运行结果。
 - Bad: 组件直接 `fetch("/api/strategy/worker/scheduler/start")`，或调度失败时清空运行历史。
 
 ### 6. Tests Required
 - Store 测试覆盖启动、停止、刷新状态。
+- API client 测试覆盖 `configSource=database` 时不发送 `worker_request`。
 - 失败分支测试覆盖旧调度状态保留。
 - TypeScript build 必须通过。
 

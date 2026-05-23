@@ -534,18 +534,14 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().strategyPersistenceStatus.error).toBe("worker unavailable");
   });
 
-  it("starts backend worker scheduler with current strategy snapshot", async () => {
+  it("starts backend worker scheduler with database strategy config source", async () => {
     const store = createBitSentinelStore();
     mockedStartBackendStrategyWorkerScheduler.mockResolvedValue(runningSchedulerStatus);
 
     const result = await store.getState().startWorkerScheduler();
 
     expect(mockedStartBackendStrategyWorkerScheduler).toHaveBeenCalledWith({
-      strategyInstances: expect.any(Array),
-      marketSeries: expect.any(Object),
-      moneyFlows: expect.any(Array),
-      signals: expect.any(Array),
-      strategyStates: expect.any(Array),
+      configSource: "database",
       intervalSeconds: 60,
       persist: true,
     });

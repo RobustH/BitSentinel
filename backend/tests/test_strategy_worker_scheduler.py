@@ -1,15 +1,53 @@
 import asyncio
 
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.db.base import Base
 from app.main import create_app
-from app.models.strategy import StrategyWorkerScheduleRequest
+from app.models.strategy import StrategyInstanceCreateRequest, StrategyWorkerScheduleRequest
+from app.services.strategy_engine.repository import StrategyPersistenceRepository
 from app.services.strategy_engine.scheduler import StrategyWorkerScheduler
 from tests.test_strategy_worker import _request
 
 
 def _unused_session_factory():
     raise AssertionError("persist=false should not open a database session")
+
+
+def _session_factory() -> sessionmaker[Session]:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def _seed_strategy_instances(session: Session) -> None:
+    repository = StrategyPersistenceRepository(session)
+    repository.create_strategy_instance(
+        StrategyInstanceCreateRequest(
+            id="enabled-strategy",
+            name="启用策略",
+            symbols=["BTCUSDT"],
+            enabled=True,
+            signal_ids_by_slot={"trigger_tf": ["ema-cross-up"]},
+        )
+    )
+    repository.create_strategy_instance(
+        StrategyInstanceCreateRequest(
+            id="disabled-strategy",
+            name="停用策略",
+            symbols=["ETHUSDT"],
+            enabled=False,
+            signal_ids_by_slot={"trigger_tf": ["ema-cross-up"]},
+        )
+    )
+    session.commit()
 
 
 def test_strategy_worker_scheduler_runs_and_stops_without_persistence() -> None:
@@ -39,6 +77,36 @@ def test_strategy_worker_scheduler_runs_and_stops_without_persistence() -> None:
     asyncio.run(run_case())
 
 
+def test_strategy_worker_scheduler_can_read_strategy_instances_from_database() -> None:
+    async def run_case() -> None:
+        scheduler = StrategyWorkerScheduler()
+        factory = _session_factory()
+        with factory() as session:
+            _seed_strategy_instances(session)
+
+        status = await scheduler.start(
+            StrategyWorkerScheduleRequest(
+                config_source="database",
+                interval_seconds=5,
+                persist=True,
+            ),
+            session_factory=factory,
+        )
+        await asyncio.sleep(0)
+        running_status = scheduler.status()
+        await scheduler.stop()
+
+        with factory() as session:
+            states = StrategyPersistenceRepository(session).list_states()
+
+        assert status.running is True
+        assert running_status.run_count == 1
+        assert running_status.last_error is None
+        assert [state.strategy_instance_id for state in states] == ["enabled-strategy"]
+
+    asyncio.run(run_case())
+
+
 def test_strategy_worker_scheduler_api_start_status_stop() -> None:
     client = TestClient(create_app())
 
@@ -60,6 +128,46 @@ def test_strategy_worker_scheduler_api_start_status_stop() -> None:
     assert status_response.json()["interval_seconds"] == 5
     assert stop_response.status_code == 200
     assert stop_response.json()["running"] is False
+
+
+def test_strategy_worker_scheduler_api_can_start_with_database_config(
+    monkeypatch,
+) -> None:
+    factory = _session_factory()
+    with factory() as session:
+        _seed_strategy_instances(session)
+
+    monkeypatch.setattr("app.api.strategy.SessionLocal", factory)
+    client = TestClient(create_app())
+
+    start_response = client.post(
+        "/api/strategy/worker/scheduler/start",
+        json={
+            "config_source": "database",
+            "interval_seconds": 5,
+            "persist": True,
+        },
+    )
+    stop_response = client.post("/api/strategy/worker/scheduler/stop")
+
+    assert start_response.status_code == 200
+    assert start_response.json()["running"] is True
+    assert stop_response.status_code == 200
+
+
+def test_strategy_worker_scheduler_api_requires_worker_request_for_request_source() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/strategy/worker/scheduler/start",
+        json={
+            "config_source": "request",
+            "interval_seconds": 5,
+            "persist": False,
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_strategy_worker_scheduler_api_validates_interval() -> None:

@@ -778,7 +778,7 @@ return repository.list_worker_runs(limit=20)
 #### 1. Scope / Trigger
 
 - Trigger: Worker 已支持单次运行和运行历史，需要后端提供最小后台调度能力，让策略监控可以按周期自动执行。
-- Scope: 第一版是进程内内存调度器，由启动请求传入 `StrategyWorkerRunRequest` 和执行间隔；不做进程重启恢复、不读取策略配置数据库、不接外部队列。
+- Scope: 第一版是进程内内存调度器，支持请求快照模式和数据库策略配置模式；不做进程重启恢复、不接外部队列。
 
 #### 2. Signatures
 
@@ -792,10 +792,15 @@ return repository.list_worker_runs(limit=20)
 
 #### 3. Contracts
 
-- `start` 请求必须包含 `worker_request`，因为当前后端还没有策略配置事实源可供调度器自行加载。
+- `start` 请求包含 `config_source`：
+  - `request`：兼容旧模式，必须包含 `worker_request`。
+  - `database`：新模式，`worker_request` 可为空，调度器每轮从 `strategy_instances` 读取已启用策略。
 - `interval_seconds` 必须有上下限校验，避免过高频或异常间隔。
+- `database` 模式每轮运行都重新读取策略配置、当前持久化状态和信号，避免启动后配置变更不生效。
+- `database` 模式第一版不自行拉取行情/K 线；若没有行情事实源，Worker 会按空 `market_series` 运行，后续由后端行情事实源任务补齐。
 - `persist=true` 时，调度器复用 `StrategyPersistenceRepository` 写入状态、信号和运行历史，并由调度器控制事务提交。
-- `persist=false` 时，调度器不访问数据库。
+- `persist=false` 且 `config_source=request` 时，调度器不访问数据库。
+- `persist=false` 且 `config_source=database` 时，调度器仍需打开数据库 session 读取策略配置，但不写入运行结果。
 - 重复启动会停止当前调度并替换为新的请求和间隔。
 - 调度器不得复制 evaluator 或 Worker 的策略判断逻辑，只能调用 `StrategyWorker.run_once`。
 - 状态响应至少包含运行开关、间隔、持久化开关、最近启动/停止/运行时间、下一次运行时间、最近 run id、最近错误、运行次数和跳过次数。
@@ -805,21 +810,24 @@ return repository.list_worker_runs(limit=20)
 | 条件 | 处理 |
 |---|---|
 | 启动请求字段错误 | FastAPI/Pydantic 返回 422 |
+| `config_source=request` 但缺少 `worker_request` | FastAPI/Pydantic 返回 422 |
+| `config_source=database` 且缺少 `worker_request` | 允许启动，从数据库读取策略 |
 | 调度器已运行时再次启动 | 停止旧任务，使用新配置启动 |
-| `persist=false` | 不打开数据库 session |
+| `request` 模式且 `persist=false` | 不打开数据库 session |
+| `database` 模式且没有 enabled 策略 | 本轮评估数为 0，不视为启动失败 |
 | `persist=true` 且数据库写入失败 | 捕获错误写入 `last_error`，调度循环继续 |
 | 后端进程重启 | 调度状态丢失，需要调用方重新启动 |
 
 #### 5. Good/Base/Bad Cases
 
-- Good: 前端或后续管理端先用当前策略输入启动调度，再通过状态接口观察最近运行结果。
-- Base: 本地开发用 `persist=false` 验证调度循环，不依赖数据库。
+- Good: 前端只用 `config_source=database` 启动调度，后端每轮读取数据库策略配置。
+- Base: 本地开发仍可用旧 `request` 模式和 `persist=false` 验证调度循环，不依赖数据库。
 - Bad: 调度器自行伪造策略配置、复制策略计算逻辑，或在应用启动时静默恢复未知调度任务。
 
 #### 6. Tests Required
 
-- service 测试覆盖启动、立即运行、停止和 `persist=false` 不访问数据库。
-- API 测试覆盖 start/status/stop 和 interval 参数校验。
+- service 测试覆盖启动、立即运行、停止、`request + persist=false` 不访问数据库、`database` 模式读取 enabled 策略。
+- API 测试覆盖 request 模式、database 模式、start/status/stop、interval 参数校验和 request 模式缺少 `worker_request`。
 - `ruff check .` 和 `pytest` 必须通过。
 
 ### 后端策略实例配置事实源契约

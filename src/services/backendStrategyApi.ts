@@ -170,6 +170,18 @@ type RunBackendStrategyWorkerInput = FetchBackendStrategyEvaluationsInput & {
 type StartBackendStrategyWorkerSchedulerInput = RunBackendStrategyWorkerInput & {
   intervalSeconds?: number;
   persist?: boolean;
+  configSource?: "request" | "database";
+};
+
+type StartBackendStrategyWorkerSchedulerConfigInput = {
+  intervalSeconds?: number;
+  persist?: boolean;
+  configSource?: "request" | "database";
+  strategyInstances?: StrategyInstance[];
+  marketSeries?: Record<string, KlinePoint[]>;
+  moneyFlows?: MoneyFlowPoint[];
+  signals?: Signal[];
+  strategyStates?: StrategyState[];
 };
 
 type BackendPersistedStrategyData = {
@@ -511,13 +523,20 @@ export async function setBackendStrategyInstanceEnabled(
 export async function startBackendStrategyWorkerScheduler({
   intervalSeconds = 60,
   persist = true,
+  configSource = "request",
   ...input
-}: StartBackendStrategyWorkerSchedulerInput): Promise<StrategyWorkerSchedulerStatus> {
+}: StartBackendStrategyWorkerSchedulerConfigInput): Promise<StrategyWorkerSchedulerStatus> {
+  const shouldSendWorkerRequest = configSource === "request" || input.strategyInstances !== undefined;
   const response = await fetch(`${BACKEND_API_BASE_URL}/api/strategy/worker/scheduler/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      worker_request: toBackendWorkerRequest(input),
+      ...(shouldSendWorkerRequest
+        ? {
+            worker_request: toBackendWorkerRequest(input as StartBackendStrategyWorkerSchedulerInput),
+          }
+        : {}),
+      config_source: configSource,
       interval_seconds: intervalSeconds,
       persist,
     }),
