@@ -971,3 +971,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: 前端Worker调度控制
+
+**Date**: 2026-05-23
+**Task**: 前端Worker调度控制
+**Branch**: `main`
+
+### Summary
+
+接入后端 Worker 调度 API，新增前端调度状态、启停 action、策略监控中心调度控制卡片和 store 测试。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ebf3615` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
