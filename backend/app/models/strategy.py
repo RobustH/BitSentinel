@@ -119,6 +119,26 @@ class StrategyWorkerRunResponse(BaseModel):
     persistence: "StrategyPersistenceResult | None" = None
 
 
+class StrategyWorkerScheduleRequest(BaseModel):
+    worker_request: StrategyWorkerRunRequest
+    interval_seconds: int = Field(default=60, ge=5, le=86_400)
+    persist: bool = True
+
+
+class StrategyWorkerSchedulerStatus(BaseModel):
+    running: bool
+    interval_seconds: int | None = None
+    persist: bool = True
+    last_started_at: str | None = None
+    last_stopped_at: str | None = None
+    last_run_at: str | None = None
+    next_run_at: str | None = None
+    last_run_id: str | None = None
+    last_error: str | None = None
+    run_count: int = 0
+    skipped_count: int = 0
+
+
 class StrategyPersistenceResult(BaseModel):
     upserted_state_count: int
     inserted_signal_count: int

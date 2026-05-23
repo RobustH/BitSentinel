@@ -773,6 +773,55 @@ session.commit()
 return repository.list_worker_runs(limit=20)
 ```
 
+### 策略 Worker 定时调度契约
+
+#### 1. Scope / Trigger
+
+- Trigger: Worker 已支持单次运行和运行历史，需要后端提供最小后台调度能力，让策略监控可以按周期自动执行。
+- Scope: 第一版是进程内内存调度器，由启动请求传入 `StrategyWorkerRunRequest` 和执行间隔；不做进程重启恢复、不读取策略配置数据库、不接外部队列。
+
+#### 2. Signatures
+
+- Service: `StrategyWorkerScheduler`
+- HTTP:
+  - `POST /api/strategy/worker/scheduler/start`
+  - `POST /api/strategy/worker/scheduler/stop`
+  - `GET /api/strategy/worker/scheduler/status`
+- Request model: `StrategyWorkerScheduleRequest`
+- Response model: `StrategyWorkerSchedulerStatus`
+
+#### 3. Contracts
+
+- `start` 请求必须包含 `worker_request`，因为当前后端还没有策略配置事实源可供调度器自行加载。
+- `interval_seconds` 必须有上下限校验，避免过高频或异常间隔。
+- `persist=true` 时，调度器复用 `StrategyPersistenceRepository` 写入状态、信号和运行历史，并由调度器控制事务提交。
+- `persist=false` 时，调度器不访问数据库。
+- 重复启动会停止当前调度并替换为新的请求和间隔。
+- 调度器不得复制 evaluator 或 Worker 的策略判断逻辑，只能调用 `StrategyWorker.run_once`。
+- 状态响应至少包含运行开关、间隔、持久化开关、最近启动/停止/运行时间、下一次运行时间、最近 run id、最近错误、运行次数和跳过次数。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 启动请求字段错误 | FastAPI/Pydantic 返回 422 |
+| 调度器已运行时再次启动 | 停止旧任务，使用新配置启动 |
+| `persist=false` | 不打开数据库 session |
+| `persist=true` 且数据库写入失败 | 捕获错误写入 `last_error`，调度循环继续 |
+| 后端进程重启 | 调度状态丢失，需要调用方重新启动 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 前端或后续管理端先用当前策略输入启动调度，再通过状态接口观察最近运行结果。
+- Base: 本地开发用 `persist=false` 验证调度循环，不依赖数据库。
+- Bad: 调度器自行伪造策略配置、复制策略计算逻辑，或在应用启动时静默恢复未知调度任务。
+
+#### 6. Tests Required
+
+- service 测试覆盖启动、立即运行、停止和 `persist=false` 不访问数据库。
+- API 测试覆盖 start/status/stop 和 interval 参数校验。
+- `ruff check .` 和 `pytest` 必须通过。
+
 ## 第五阶段：回测与复盘
 
 推荐先做轻量事件回放：

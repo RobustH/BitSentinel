@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db_session
+from app.core.database import SessionLocal, get_db_session
 from app.models.strategy import (
     PersistedStrategySignal,
     PersistedStrategyState,
@@ -13,9 +13,12 @@ from app.models.strategy import (
     StrategyPersistenceResult,
     StrategyWorkerRunRequest,
     StrategyWorkerRunResponse,
+    StrategyWorkerScheduleRequest,
+    StrategyWorkerSchedulerStatus,
 )
 from app.services.strategy_engine.evaluator import StrategyEvaluator
 from app.services.strategy_engine.repository import StrategyPersistenceRepository
+from app.services.strategy_engine.scheduler import strategy_worker_scheduler
 from app.services.strategy_engine.worker import StrategyWorker
 
 router = APIRouter(prefix="/strategy", tags=["strategy"])
@@ -72,3 +75,20 @@ def list_strategy_worker_runs(
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[PersistedStrategyWorkerRun]:
     return StrategyPersistenceRepository(db).list_worker_runs(limit=limit)
+
+
+@router.post("/worker/scheduler/start", response_model=StrategyWorkerSchedulerStatus)
+async def start_strategy_worker_scheduler(
+    request: StrategyWorkerScheduleRequest,
+) -> StrategyWorkerSchedulerStatus:
+    return await strategy_worker_scheduler.start(request, session_factory=SessionLocal)
+
+
+@router.post("/worker/scheduler/stop", response_model=StrategyWorkerSchedulerStatus)
+async def stop_strategy_worker_scheduler() -> StrategyWorkerSchedulerStatus:
+    return await strategy_worker_scheduler.stop()
+
+
+@router.get("/worker/scheduler/status", response_model=StrategyWorkerSchedulerStatus)
+def get_strategy_worker_scheduler_status() -> StrategyWorkerSchedulerStatus:
+    return strategy_worker_scheduler.status()
