@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 24
+- **Total Sessions**: 25
 - **Last Active**: 2026-05-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~808 | Active |
+| `journal-1.md` | ~841 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 25 | 2026-05-23 | 前端展示数据库表状态 | `3925f3d` | `main` |
 | 24 | 2026-05-23 | 后端数据库表状态诊断 | `b4b1b15` | `main` |
 | 23 | 2026-05-23 | 前端展示Worker运行历史 | `646cec3` | `main` |
 | 22 | 2026-05-23 | Worker运行历史落库与查询 | `2976818` | `main` |

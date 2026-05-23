@@ -806,3 +806,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: 前端展示数据库表状态
+
+**Date**: 2026-05-23
+**Task**: 前端展示数据库表状态
+**Branch**: `main`
+
+### Summary
+
+系统设置页新增数据库表状态只读诊断，展示受管理表、已存在表和缺失表，失败时保留旧诊断状态。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3925f3d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
