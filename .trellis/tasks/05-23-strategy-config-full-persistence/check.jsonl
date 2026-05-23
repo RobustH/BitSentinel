@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/architecture/backend-roadmap.md", "reason": "校验后端策略实例和初始化契约"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "校验前端策略配置同步契约"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "校验 StrategyInstance 类型映射"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "校验测试和类型检查要求"}
