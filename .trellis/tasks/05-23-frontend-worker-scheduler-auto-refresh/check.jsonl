@@ -1,0 +1,3 @@
+{"type":"check","text":"运行 npm.cmd test。"}
+{"type":"check","text":"运行 npx.cmd tsc --noEmit。"}
+{"type":"check","text":"确认 interval 在 useEffect cleanup 中清理，且只在 schedulerStatus.running 为 true 时启用。"}
