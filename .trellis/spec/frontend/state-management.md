@@ -635,3 +635,62 @@ localStorage.setItem("databaseUrl", databaseUrl);
 // 前端只触发后端测试接口并展示脱敏结果
 void refreshDatabaseConnectionStatus();
 ```
+
+
+---
+
+## 后端数据库表状态接入约定
+
+### 1. Scope / Trigger
+- Trigger: 后端提供 `GET /api/system/database/schema`，前端需要展示当前受管理表是否已初始化。
+- Scope: 只读展示数据库表状态，不编辑连接、不保存凭据、不提供网页建表或迁移入口。
+
+### 2. Signatures
+- API client：`fetchBackendDatabaseSchemaStatus()`。
+- Store action：`refreshDatabaseSchemaStatus(): Promise<void>`。
+- Store state：`databaseSchemaStatus`。
+- Backend endpoint：`GET /api/system/database/schema`。
+
+### 3. Contracts
+- API client 负责 DTO 转换：
+  - `ready` -> `ready`
+  - `managed_tables` -> `managedTables`
+  - `existing_tables` -> `existingTables`
+  - `missing_tables` -> `missingTables`
+- `target` 只允许展示 `driver`、`host`、`port`、`database`。
+- Store action 成功时更新表状态、最近检查时间和脱敏目标。
+- Store action 失败时保留旧表状态，只写入错误状态。
+- 页面组件只能调用 store action，不得直接 fetch。
+- 页面不得提供建表按钮；初始化仍通过后端 CLI 或后续受认证管理入口完成。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 后端表齐全 | 显示 ready 和已存在表 |
+| 后端缺表 | 显示 missing tables 和未就绪状态 |
+| 请求后端失败 | 保留旧表状态，显示请求错误 |
+| 响应包含敏感字段 | 前端不得展示用户名、密码或完整 URL |
+
+### 5. Good/Base/Bad Cases
+- Good: 系统设置页点击“检查表状态”，展示受管理表、已存在表、缺失表。
+- Base: 尚未检查时显示“未检查”。
+- Bad: 页面提供“初始化数据库”按钮，或把 database URL 写入前端状态。
+
+### 6. Tests Required
+- 成功分支：断言 store 写入 ready/missing/existing 表状态。
+- 失败分支：断言错误写入且不清空旧表状态。
+- TypeScript build 必须通过。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 前端提供建表入口，容易形成无认证高风险操作
+await fetch("/api/system/database/init", { method: "POST" });
+```
+
+#### Correct
+```typescript
+// 前端只触发只读诊断接口并展示脱敏结果
+void refreshDatabaseSchemaStatus();
+```
