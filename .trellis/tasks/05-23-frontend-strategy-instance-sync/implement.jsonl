@@ -1,0 +1,3 @@
+{"type":"context","text":"实现前端策略配置同步后端。读取 .trellis/spec/frontend/state-management.md、type-safety.md、component-guidelines.md、quality-guidelines.md。"}
+{"type":"plan","text":"在 src/types.ts 增加 StrategyInstanceSyncStatus；在 src/services/backendStrategyApi.ts 增加 strategy_instances API；在 src/store/appStore.ts 增加 refreshBackendStrategyInstances/saveStrategyInstancesToBackend，并在 toggleStrategyEnabled 中尝试同步后端启停；在策略工作区加按钮。"}
+{"type":"constraint","text":"组件不得直接 fetch 后端；后端返回空策略列表时不清空前端现有 mock 策略。"}
