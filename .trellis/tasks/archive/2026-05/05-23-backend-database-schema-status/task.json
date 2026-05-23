@@ -3,7 +3,7 @@
   "name": "backend-database-schema-status",
   "title": "后端数据库表状态诊断",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "backend",
   "scope": "database-schema-diagnostics",
   "package": "backend",
