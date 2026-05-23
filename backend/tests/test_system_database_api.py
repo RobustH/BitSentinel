@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import Column, DateTime, MetaData, String, Table, create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
 
@@ -106,6 +106,34 @@ def test_database_schema_service_reports_ready_tables() -> None:
         "strategy_states",
         "strategy_worker_runs",
     ]
+
+
+def test_database_schema_service_reports_missing_strategy_instance_columns() -> None:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    metadata = MetaData()
+    Table(
+        "strategy_instances",
+        metadata,
+        Column("id", String(128), primary_key=True),
+        Column("name", String(160), nullable=False),
+        Column("symbols_json", String, nullable=False),
+        Column("enabled", String, nullable=False),
+        Column("condition_ids_json", String, nullable=False),
+        Column("risk_signal_ids_json", String, nullable=False),
+        Column("signal_ids_by_slot_json", String, nullable=False),
+        Column("created_at", DateTime(timezone=True), nullable=False),
+        Column("updated_at", DateTime(timezone=True), nullable=False),
+    )
+    metadata.create_all(bind=engine)
+
+    result = check_database_schema(engine, "sqlite+pysqlite:///:memory:")
+
+    assert result.ready is False
+    assert "strategy_instances.template_id" in result.missing_tables
 
 
 def test_database_test_endpoint_uses_configured_backend_connection(monkeypatch) -> None:

@@ -41,6 +41,12 @@ class StrategyInstanceInput(BaseModel):
     signal_ids_by_slot: dict[str, list[str]] = Field(default_factory=dict)
 
 
+class StrategyVersionHistoryItem(BaseModel):
+    version: int = Field(ge=1)
+    changed_at: str
+    summary: str
+
+
 class ExistingSignalInput(BaseModel):
     instance_id: str
     symbol: str
@@ -141,18 +147,28 @@ class StrategyWorkerSchedulerStatus(BaseModel):
 
 class StrategyInstanceCreateRequest(BaseModel):
     id: str = Field(min_length=1, max_length=128)
+    template_id: str = Field(default="backend-strategy", min_length=1, max_length=128)
+    slot_template_id: str = Field(default="backend-strategy", min_length=1, max_length=128)
     name: str = Field(min_length=1, max_length=160)
+    version: int = Field(default=1, ge=1)
+    version_history: list[StrategyVersionHistoryItem] = Field(default_factory=list)
     symbols: list[str]
     enabled: bool = True
+    slots: dict[str, str] = Field(default_factory=dict)
     condition_ids: list[str] = Field(default_factory=list)
     risk_signal_ids: list[str] = Field(default_factory=list)
     signal_ids_by_slot: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class StrategyInstanceUpdateRequest(BaseModel):
+    template_id: str | None = Field(default=None, min_length=1, max_length=128)
+    slot_template_id: str | None = Field(default=None, min_length=1, max_length=128)
     name: str | None = Field(default=None, min_length=1, max_length=160)
+    version: int | None = Field(default=None, ge=1)
+    version_history: list[StrategyVersionHistoryItem] | None = None
     symbols: list[str] | None = None
     enabled: bool | None = None
+    slots: dict[str, str] | None = None
     condition_ids: list[str] | None = None
     risk_signal_ids: list[str] | None = None
     signal_ids_by_slot: dict[str, list[str]] | None = None
@@ -160,9 +176,14 @@ class StrategyInstanceUpdateRequest(BaseModel):
 
 class PersistedStrategyInstance(BaseModel):
     id: str
+    template_id: str
+    slot_template_id: str
     name: str
+    version: int
+    version_history: list[StrategyVersionHistoryItem]
     symbols: list[str]
     enabled: bool
+    slots: dict[str, str]
     condition_ids: list[str]
     risk_signal_ids: list[str]
     signal_ids_by_slot: dict[str, list[str]]

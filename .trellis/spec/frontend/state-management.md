@@ -614,11 +614,15 @@ void refreshWorkerRunHistory();
 
 ### 3. Contracts
 - API client 负责 DTO 转换：
+  - `template_id` -> `templateId`
+  - `slot_template_id` -> `slotTemplateId`
+  - `version_history[].changed_at` -> `versionHistory[].changedAt`
   - `condition_ids` -> `conditionIds`
   - `risk_signal_ids` -> `riskSignalIds`
   - `signal_ids_by_slot` -> `signalIdsBySlot`
-- 后端当前不保存前端专用的 `slots`、`templateId`、`slotTemplateId`、`versionHistory`；同步时必须优先按相同 `id` 合并保留本地字段。
-- 后端返回新策略且本地没有同 `id` 时，前端可使用保守默认槽位：`direction_tf=1d`、`structure_tf=4h`、`trigger_tf=1h`。
+- 后端保存完整策略配置字段：`template_id`、`slot_template_id`、`version`、`version_history`、`slots`。
+- 前端保存策略配置时必须提交完整字段；后端返回完整字段时以前端 DTO 转换结果为准。
+- 前端仍需兼容旧后端响应：若完整字段缺失，同步时优先按相同 `id` 合并保留本地字段；没有本地字段时使用保守默认槽位：`direction_tf=1d`、`structure_tf=4h`、`trigger_tf=1h`。
 - `refreshBackendStrategyInstances` 成功且后端非空时，必须同步重建 `strategyStates`，粒度仍是 `strategyInstanceId + symbol`。
 - `refreshBackendStrategyInstances` 成功但后端返回空数组时，不得清空本地策略列表；应标记后端已同步且 `savedCount=0`。
 - `saveStrategyInstancesToBackend` 失败时返回 `null`，保留本地策略配置，只写入 `strategyConfigSyncStatus.error`。
@@ -632,7 +636,7 @@ void refreshWorkerRunHistory();
 | 后端返回空数组 | 保留本地策略配置，显示后端暂无配置 |
 | 后端请求失败 | 保留本地策略配置，写入错误 |
 | 保存部分或全部失败 | action 返回 `null`，保留本地策略配置 |
-| 后端缺少前端专用字段 | 合并本地已有字段或使用默认槽位 |
+| 后端缺少完整配置字段 | 兼容旧响应，合并本地已有字段或使用默认槽位 |
 | 启停同步失败 | 保留本地乐观状态，写入错误供页面提示 |
 
 ### 5. Good/Base/Bad Cases
@@ -646,6 +650,7 @@ void refreshWorkerRunHistory();
 - 保存成功：断言传入当前策略列表，写入后端来源和保存数量。
 - 保存失败：断言返回 `null`，旧策略配置保留，错误写入状态。
 - 启停策略：断言本地立即切换，并调用后端 enable/disable client。
+- API client 测试覆盖完整字段的 snake_case/camelCase 往返，尤其是 `slots` 和 `version_history`。
 - TypeScript build 必须通过。
 
 ### 7. Wrong vs Correct

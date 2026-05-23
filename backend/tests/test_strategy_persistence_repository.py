@@ -159,9 +159,25 @@ def test_create_and_list_strategy_instance_configuration() -> None:
     created = repository.create_strategy_instance(
         StrategyInstanceCreateRequest(
             id="strategy-config-1",
+            template_id="tpl-triple-trend",
+            slot_template_id="slot-triple-trend",
             name="三周期趋势策略",
+            version=2,
+            version_history=[
+                {
+                    "version": 1,
+                    "changed_at": "2026-05-20 10:00:00",
+                    "summary": "创建策略",
+                },
+                {
+                    "version": 2,
+                    "changed_at": "2026-05-21 10:00:00",
+                    "summary": "调整槽位",
+                },
+            ],
             symbols=["BTCUSDT", "ETHUSDT"],
             enabled=True,
+            slots={"direction_tf": "1d", "structure_tf": "4h", "trigger_tf": "1h"},
             condition_ids=["ema-trend-up", "macd-expansion"],
             risk_signal_ids=["trend-invalid"],
             signal_ids_by_slot={"direction_tf": ["ema-trend-up"]},
@@ -170,6 +186,11 @@ def test_create_and_list_strategy_instance_configuration() -> None:
     listed = repository.list_strategy_instances()
 
     assert created.id == "strategy-config-1"
+    assert created.template_id == "tpl-triple-trend"
+    assert created.slot_template_id == "slot-triple-trend"
+    assert created.version == 2
+    assert created.version_history[1].summary == "调整槽位"
+    assert created.slots == {"direction_tf": "1d", "structure_tf": "4h", "trigger_tf": "1h"}
     assert created.symbols == ["BTCUSDT", "ETHUSDT"]
     assert created.condition_ids == ["ema-trend-up", "macd-expansion"]
     assert created.signal_ids_by_slot == {"direction_tf": ["ema-trend-up"]}
@@ -190,17 +211,33 @@ def test_update_strategy_instance_configuration() -> None:
     updated = repository.update_strategy_instance(
         "strategy-config-1",
         StrategyInstanceUpdateRequest(
+            template_id="tpl-dual-trend",
+            slot_template_id="slot-dual-trend",
             name="新策略",
+            version=2,
+            version_history=[
+                {
+                    "version": 2,
+                    "changed_at": "2026-05-22 10:00:00",
+                    "summary": "后端更新",
+                }
+            ],
             symbols=["SOLUSDT"],
             enabled=False,
+            slots={"direction_tf": "4h", "structure_tf": "1h", "trigger_tf": "15m"},
             condition_ids=["oi-rising"],
         ),
     )
 
     assert updated is not None
+    assert updated.template_id == "tpl-dual-trend"
+    assert updated.slot_template_id == "slot-dual-trend"
     assert updated.name == "新策略"
+    assert updated.version == 2
+    assert updated.version_history[0].changed_at == "2026-05-22 10:00:00"
     assert updated.symbols == ["SOLUSDT"]
     assert updated.enabled is False
+    assert updated.slots == {"direction_tf": "4h", "structure_tf": "1h", "trigger_tf": "15m"}
     assert updated.condition_ids == ["oi-rising"]
 
 

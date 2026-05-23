@@ -10,9 +10,22 @@ class StrategyInstanceRecord(Base):
     __tablename__ = "strategy_instances"
 
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    template_id: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        default="backend-strategy",
+    )
+    slot_template_id: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        default="backend-strategy",
+    )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    version_history_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     symbols_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    slots_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     condition_ids_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     risk_signal_ids_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     signal_ids_by_slot_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

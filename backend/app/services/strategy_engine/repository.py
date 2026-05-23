@@ -56,9 +56,16 @@ class StrategyPersistenceRepository:
         now = datetime.now().astimezone()
         record = StrategyInstanceRecord(
             id=request.id,
+            template_id=request.template_id,
+            slot_template_id=request.slot_template_id,
             name=request.name,
+            version=request.version,
+            version_history_json=_dump_json(
+                [item.model_dump() for item in request.version_history]
+            ),
             symbols_json=_dump_json(request.symbols),
             enabled=request.enabled,
+            slots_json=_dump_json(request.slots),
             condition_ids_json=_dump_json(request.condition_ids),
             risk_signal_ids_json=_dump_json(request.risk_signal_ids),
             signal_ids_by_slot_json=_dump_json(request.signal_ids_by_slot),
@@ -78,12 +85,24 @@ class StrategyPersistenceRepository:
         if record is None:
             return None
 
+        if request.template_id is not None:
+            record.template_id = request.template_id
+        if request.slot_template_id is not None:
+            record.slot_template_id = request.slot_template_id
         if request.name is not None:
             record.name = request.name
+        if request.version is not None:
+            record.version = request.version
+        if request.version_history is not None:
+            record.version_history_json = _dump_json(
+                [item.model_dump() for item in request.version_history]
+            )
         if request.symbols is not None:
             record.symbols_json = _dump_json(request.symbols)
         if request.enabled is not None:
             record.enabled = request.enabled
+        if request.slots is not None:
+            record.slots_json = _dump_json(request.slots)
         if request.condition_ids is not None:
             record.condition_ids_json = _dump_json(request.condition_ids)
         if request.risk_signal_ids is not None:
@@ -304,12 +323,45 @@ def _to_slot_mapping(value: object) -> dict[str, list[str]]:
     return {key: _to_string_list(raw) for key, raw in value.items() if isinstance(key, str)}
 
 
+def _to_string_mapping(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: raw for key, raw in value.items() if isinstance(key, str) and isinstance(raw, str)}
+
+
+def _to_version_history(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+
+    history: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        version = item.get("version")
+        changed_at = item.get("changed_at")
+        summary = item.get("summary")
+        if isinstance(version, int) and isinstance(changed_at, str) and isinstance(summary, str):
+            history.append(
+                {
+                    "version": version,
+                    "changed_at": changed_at,
+                    "summary": summary,
+                }
+            )
+    return history
+
+
 def _to_persisted_strategy_instance(record: StrategyInstanceRecord) -> PersistedStrategyInstance:
     return PersistedStrategyInstance(
         id=record.id,
+        template_id=record.template_id,
+        slot_template_id=record.slot_template_id,
         name=record.name,
+        version=record.version,
+        version_history=_to_version_history(_load_json(record.version_history_json, [])),
         symbols=_to_string_list(_load_json(record.symbols_json, [])),
         enabled=record.enabled,
+        slots=_to_string_mapping(_load_json(record.slots_json, {})),
         condition_ids=_to_string_list(_load_json(record.condition_ids_json, [])),
         risk_signal_ids=_to_string_list(_load_json(record.risk_signal_ids_json, [])),
         signal_ids_by_slot=_to_slot_mapping(_load_json(record.signal_ids_by_slot_json, {})),

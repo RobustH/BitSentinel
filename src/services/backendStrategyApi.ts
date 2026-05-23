@@ -134,14 +134,25 @@ type BackendStrategyWorkerSchedulerStatus = {
 
 type BackendStrategyInstance = {
   id: string;
+  template_id?: string;
+  slot_template_id?: string;
   name: string;
+  version?: number;
+  version_history?: BackendStrategyVersionHistoryItem[];
   symbols: string[];
   enabled: boolean;
+  slots?: Record<string, string>;
   condition_ids: string[];
   risk_signal_ids: string[];
   signal_ids_by_slot: Record<string, string[]>;
   created_at: string;
   updated_at: string;
+};
+
+type BackendStrategyVersionHistoryItem = {
+  version: number;
+  changed_at: string;
+  summary: string;
 };
 
 type FetchBackendStrategyEvaluationsInput = {
@@ -239,9 +250,18 @@ const toBackendWorkerRequest = (input: RunBackendStrategyWorkerInput): BackendSt
 
 const toBackendStrategyInstance = (instance: StrategyInstance) => ({
   id: instance.id,
+  template_id: instance.templateId,
+  slot_template_id: instance.slotTemplateId,
   name: instance.name,
+  version: instance.version ?? 1,
+  version_history: (instance.versionHistory ?? []).map((item) => ({
+    version: item.version,
+    changed_at: item.changedAt,
+    summary: item.summary,
+  })),
   symbols: instance.symbols,
   enabled: instance.enabled,
+  slots: instance.slots,
   condition_ids: instance.conditionIds,
   risk_signal_ids: instance.riskSignalIds,
   signal_ids_by_slot: instance.signalIdsBySlot as Record<string, string[]>,
@@ -323,21 +343,46 @@ const defaultBackendSlots: Record<TimeframeSlotKey, string> = {
   trigger_tf: "1h",
 };
 
+const toFrontendSlots = (
+  slots: Record<string, string> | undefined,
+  existing?: StrategyInstance,
+): Record<TimeframeSlotKey, string> => ({
+  direction_tf: slots?.direction_tf ?? existing?.slots.direction_tf ?? defaultBackendSlots.direction_tf,
+  structure_tf: slots?.structure_tf ?? existing?.slots.structure_tf ?? defaultBackendSlots.structure_tf,
+  trigger_tf: slots?.trigger_tf ?? existing?.slots.trigger_tf ?? defaultBackendSlots.trigger_tf,
+});
+
+const toFrontendVersionHistory = (
+  rows: BackendStrategyVersionHistoryItem[] | undefined,
+  existing?: StrategyInstance,
+  fallbackChangedAt?: string,
+): StrategyInstance["versionHistory"] => {
+  if (rows?.length) {
+    return rows.map((row) => ({
+      version: row.version,
+      changedAt: row.changed_at,
+      summary: row.summary,
+    }));
+  }
+
+  return existing?.versionHistory ?? [
+    { version: 1, changedAt: fallbackChangedAt ?? "后端同步", summary: "从后端策略配置同步" },
+  ];
+};
+
 const toFrontendStrategyInstance = (
   row: BackendStrategyInstance,
   existing?: StrategyInstance,
 ): StrategyInstance => ({
   id: row.id,
-  templateId: existing?.templateId ?? "backend-strategy",
-  slotTemplateId: existing?.slotTemplateId ?? "backend-strategy",
+  templateId: row.template_id ?? existing?.templateId ?? "backend-strategy",
+  slotTemplateId: row.slot_template_id ?? existing?.slotTemplateId ?? "backend-strategy",
   name: row.name,
-  version: existing?.version ?? 1,
-  versionHistory: existing?.versionHistory ?? [
-    { version: 1, changedAt: row.updated_at, summary: "从后端策略配置同步" },
-  ],
+  version: row.version ?? existing?.version ?? 1,
+  versionHistory: toFrontendVersionHistory(row.version_history, existing, row.updated_at),
   symbols: row.symbols,
   enabled: row.enabled,
-  slots: existing?.slots ?? defaultBackendSlots,
+  slots: toFrontendSlots(row.slots, existing),
   signalIdsBySlot: row.signal_ids_by_slot as Partial<Record<TimeframeSlotKey, string[]>>,
   riskSignalIds: row.risk_signal_ids,
   conditionIds: row.condition_ids,

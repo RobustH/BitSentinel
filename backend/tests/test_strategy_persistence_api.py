@@ -70,9 +70,25 @@ def test_worker_run_once_can_persist_events(client: TestClient) -> None:
 def _strategy_instance_payload() -> dict[str, object]:
     return {
         "id": "strategy-config-1",
+        "template_id": "tpl-triple-trend",
+        "slot_template_id": "slot-triple-trend",
         "name": "三周期趋势策略",
+        "version": 2,
+        "version_history": [
+            {
+                "version": 1,
+                "changed_at": "2026-05-20 10:00:00",
+                "summary": "创建策略",
+            },
+            {
+                "version": 2,
+                "changed_at": "2026-05-21 10:00:00",
+                "summary": "调整槽位",
+            },
+        ],
         "symbols": ["BTCUSDT", "ETHUSDT"],
         "enabled": True,
+        "slots": {"direction_tf": "1d", "structure_tf": "4h", "trigger_tf": "1h"},
         "condition_ids": ["ema-trend-up", "macd-expansion"],
         "risk_signal_ids": ["trend-invalid"],
         "signal_ids_by_slot": {"direction_tf": ["ema-trend-up"]},
@@ -86,24 +102,58 @@ def test_strategy_instance_configuration_crud(client: TestClient) -> None:
         "/api/strategy/instances/strategy-config-1",
         json={
             "name": "更新后的趋势策略",
+            "slot_template_id": "slot-dual-trend",
+            "version": 3,
+            "version_history": [
+                {
+                    "version": 3,
+                    "changed_at": "2026-05-22 10:00:00",
+                    "summary": "API 更新",
+                }
+            ],
             "symbols": ["SOLUSDT"],
             "enabled": False,
+            "slots": {"direction_tf": "4h", "structure_tf": "1h", "trigger_tf": "15m"},
             "condition_ids": ["oi-rising"],
         },
     )
     enable_response = client.post("/api/strategy/instances/strategy-config-1/enable")
 
     assert create_response.status_code == 200
+    assert create_response.json()["template_id"] == "tpl-triple-trend"
+    assert create_response.json()["slot_template_id"] == "slot-triple-trend"
+    assert create_response.json()["version"] == 2
+    assert create_response.json()["version_history"][1]["summary"] == "调整槽位"
+    assert create_response.json()["slots"] == {
+        "direction_tf": "1d",
+        "structure_tf": "4h",
+        "trigger_tf": "1h",
+    }
     assert create_response.json()["symbols"] == ["BTCUSDT", "ETHUSDT"]
     assert list_response.status_code == 200
     assert list_response.json()[0]["id"] == "strategy-config-1"
+    assert list_response.json()[0]["version_history"][0]["changed_at"] == "2026-05-20 10:00:00"
     assert update_response.status_code == 200
     assert update_response.json()["name"] == "更新后的趋势策略"
+    assert update_response.json()["template_id"] == "tpl-triple-trend"
+    assert update_response.json()["slot_template_id"] == "slot-dual-trend"
+    assert update_response.json()["version"] == 3
+    assert update_response.json()["version_history"][0]["summary"] == "API 更新"
     assert update_response.json()["symbols"] == ["SOLUSDT"]
     assert update_response.json()["enabled"] is False
+    assert update_response.json()["slots"] == {
+        "direction_tf": "4h",
+        "structure_tf": "1h",
+        "trigger_tf": "15m",
+    }
     assert update_response.json()["condition_ids"] == ["oi-rising"]
     assert enable_response.status_code == 200
     assert enable_response.json()["enabled"] is True
+    assert enable_response.json()["slots"] == {
+        "direction_tf": "4h",
+        "structure_tf": "1h",
+        "trigger_tf": "15m",
+    }
 
 
 def test_strategy_instance_configuration_missing_instance_returns_404(

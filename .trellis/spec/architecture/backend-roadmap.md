@@ -827,7 +827,7 @@ return repository.list_worker_runs(limit=20)
 #### 1. Scope / Trigger
 
 - Trigger: Worker 调度当前依赖前端传入策略快照，后端需要先持久化策略实例配置，为后续自驱 Worker 提供事实源。
-- Scope: 第一版只保存策略实例配置并提供 CRUD API，不让 Worker 调度器自动读取配置，不实现策略模板表、条件库表、认证、多租户或 Alembic 迁移。
+- Scope: 保存前端策略实例的完整配置并提供 CRUD API，不让 Worker 调度器自动读取配置，不实现策略模板表、条件库表、认证、多租户或 Alembic 迁移。
 
 #### 2. Signatures
 
@@ -851,19 +851,25 @@ return repository.list_worker_runs(limit=20)
 - `strategy_instances` 表按 `id` 保存策略实例配置。
 - 字段至少包含：
   - `id`
+  - `template_id`
+  - `slot_template_id`
   - `name`
+  - `version`
+  - `version_history`
   - `symbols`
   - `enabled`
+  - `slots`
   - `condition_ids`
   - `risk_signal_ids`
   - `signal_ids_by_slot`
   - `created_at`
   - `updated_at`
 - 第一版列表和映射字段使用 JSON 字符串列保存，由 repository 负责序列化和反序列化。
+- `version_history` 对外使用 snake_case 字段：`version`、`changed_at`、`summary`。
 - repository 只 `flush`，不隐式 `commit`；事务边界由 API 控制。
 - 启停 API 只修改 `enabled` 和 `updated_at`。
-- `python -m app.scripts.init_db` 必须把 `strategy_instances` 纳入 managed tables。
-- schema 诊断必须报告 `strategy_instances` 是否存在。
+- `python -m app.scripts.init_db` 必须把 `strategy_instances` 纳入 managed tables，并能为已存在的旧 `strategy_instances` 表补齐新增列。
+- schema 诊断必须报告 `strategy_instances` 是否存在；若旧表缺少受管理列，`missing_tables` 可返回 `strategy_instances.<column>` 形式的缺失项。
 - 当前 Worker run request 仍可由前端传入；调度器读取后端策略配置属于后续任务。
 
 #### 4. Validation & Error Matrix
@@ -874,7 +880,8 @@ return repository.list_worker_runs(limit=20)
 | 更新存在的策略实例 | 更新传入字段，未传字段保持不变 |
 | 更新或启停不存在的实例 | 返回 404 |
 | JSON 字段为空 | 使用空数组或空映射 |
-| 初始化数据库 | 幂等创建 `strategy_instances`，不删除已有数据 |
+| 初始化数据库 | 幂等创建 `strategy_instances`，并给旧表补列，不删除已有数据 |
+| 旧表缺少新增字段 | `init_db` 执行 `ALTER TABLE ADD COLUMN` 补齐安全默认值 |
 
 #### 5. Good/Base/Bad Cases
 
@@ -886,7 +893,7 @@ return repository.list_worker_runs(limit=20)
 
 - repository 测试覆盖创建、更新、启停缺失实例。
 - API 测试覆盖创建、列表、更新、启用和 404。
-- 初始化和 schema 测试覆盖 `strategy_instances`。
+- 初始化和 schema 测试覆盖 `strategy_instances` 建表、旧表补列和缺列诊断。
 - `ruff check .` 和 `pytest` 必须通过。
 
 ## 第五阶段：回测与复盘
