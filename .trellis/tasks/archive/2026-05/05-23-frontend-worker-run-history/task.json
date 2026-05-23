@@ -3,7 +3,7 @@
   "name": "frontend-worker-run-history",
   "title": "前端展示Worker运行历史",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "frontend",
   "scope": "worker-run-history",
   "package": "src",
