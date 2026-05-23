@@ -12,3 +12,12 @@ class DatabaseConnectionTestResult(BaseModel):
     connected: bool
     message: str
     target: DatabaseConnectionTarget
+
+
+class DatabaseSchemaStatusResult(BaseModel):
+    ready: bool
+    message: str
+    target: DatabaseConnectionTarget
+    managed_tables: list[str]
+    existing_tables: list[str]
+    missing_tables: list[str]
