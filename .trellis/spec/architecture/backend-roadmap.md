@@ -170,6 +170,70 @@ localStorage.setItem("databaseUrl", databaseUrl);
 return check_database_connection(engine, settings.database_url)
 ```
 
+### 后端数据库表状态诊断契约
+
+#### 1. Scope / Trigger
+
+- Trigger: 数据库连接成功不代表业务表已初始化，需要后端诊断入口确认当前受管理表是否齐全。
+- Scope: 只读检查 schema 状态，不创建表、不删除表、不修改数据，不改变 `/api/health` 的无外部依赖语义。
+
+#### 2. Signatures
+
+- Service: `check_database_schema(engine, database_url)`
+- HTTP: `GET /api/system/database/schema`
+- Response model: `DatabaseSchemaStatusResult`
+- Managed table registry: `managed_table_names()`
+
+#### 3. Contracts
+
+- 响应字段：
+  - `ready`: 受管理表是否全部存在。
+  - `message`: 可读诊断结果，不包含密码或完整 URL。
+  - `target`: 脱敏目标信息，只允许包含 `driver`、`host`、`port`、`database`。
+  - `managed_tables`: 后端当前负责初始化的表名。
+  - `existing_tables`: 当前数据库中已存在的受管理表。
+  - `missing_tables`: 当前数据库中缺失的受管理表。
+- 接口只读取当前配置数据库的表名，不执行 `create_all`。
+- 数据库连接串只来自后端配置：`.env`、`.env.example` 或部署环境变量。
+- 接口不得返回完整 database URL、用户名、密码或原始 secret。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+|---|---|
+| 所有受管理表存在 | 返回 `ready = true`，`missing_tables = []` |
+| 部分或全部表缺失 | 返回 `ready = false` 和缺失表名 |
+| 数据库不可用或 inspect 失败 | 返回 `ready = false` 和错误类别摘要 |
+| database URL 包含用户名/密码 | 响应中只返回脱敏目标，不返回凭据 |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: 部署后先调用 schema 诊断确认缺失表，再显式执行 `python -m app.scripts.init_db`。
+- Base: 新库未初始化时接口报告缺失 `strategy_states`、`strategy_signals`、`strategy_worker_runs`。
+- Bad: 暴露无认证 HTTP 建表接口，或 schema 诊断接口静默创建真实数据库表。
+
+#### 6. Tests Required
+
+- 单元测试覆盖全部缺表、全部表齐和响应脱敏。
+- API 测试覆盖 `GET /api/system/database/schema` 的 ready、missing、failure 分支。
+- `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# 诊断接口里直接建表，部署副作用不可见
+Base.metadata.create_all(bind=engine)
+```
+
+#### Correct
+
+```python
+# 只读检查，由部署动作显式初始化
+return check_database_schema(engine, settings.database_url)
+```
+
 ## 第二阶段：行情采集
 
 范围：
