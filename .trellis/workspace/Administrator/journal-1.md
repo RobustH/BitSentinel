@@ -1037,3 +1037,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 32: 后端策略配置事实源
+
+**Date**: 2026-05-23
+**Task**: 后端策略配置事实源
+**Branch**: `main`
+
+### Summary
+
+新增 strategy_instances 表、策略实例 CRUD/启停 API、repository 转换逻辑，并将新增表纳入数据库初始化和 schema 诊断。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fb2dc7a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
