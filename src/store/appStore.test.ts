@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import {
   fetchBackendPersistedStrategyData,
+  fetchBackendStrategyInstances,
   fetchBackendStrategyEvaluations,
   fetchBackendStrategyWorkerRuns,
   fetchBackendStrategyWorkerSchedulerStatus,
   runBackendStrategyWorkerOnceAndPersist,
+  saveBackendStrategyInstances,
+  setBackendStrategyInstanceEnabled,
   startBackendStrategyWorkerScheduler,
   stopBackendStrategyWorkerScheduler,
 } from "../services/backendStrategyApi";
@@ -20,10 +23,13 @@ vi.mock("../services/backendMarketApi", () => ({
 
 vi.mock("../services/backendStrategyApi", () => ({
   fetchBackendPersistedStrategyData: vi.fn(),
+  fetchBackendStrategyInstances: vi.fn(),
   fetchBackendStrategyEvaluations: vi.fn(),
   fetchBackendStrategyWorkerRuns: vi.fn(),
   fetchBackendStrategyWorkerSchedulerStatus: vi.fn(),
   runBackendStrategyWorkerOnceAndPersist: vi.fn(),
+  saveBackendStrategyInstances: vi.fn(),
+  setBackendStrategyInstanceEnabled: vi.fn(),
   startBackendStrategyWorkerScheduler: vi.fn(),
   stopBackendStrategyWorkerScheduler: vi.fn(),
 }));
@@ -37,12 +43,15 @@ const mockedFetchBackendIndicatorSummary = vi.mocked(fetchBackendIndicatorSummar
 const mockedFetchBackendMarketKlines = vi.mocked(fetchBackendMarketKlines);
 const mockedFetchBackendMarketTickers = vi.mocked(fetchBackendMarketTickers);
 const mockedFetchBackendPersistedStrategyData = vi.mocked(fetchBackendPersistedStrategyData);
+const mockedFetchBackendStrategyInstances = vi.mocked(fetchBackendStrategyInstances);
 const mockedFetchBackendStrategyEvaluations = vi.mocked(fetchBackendStrategyEvaluations);
 const mockedFetchBackendStrategyWorkerRuns = vi.mocked(fetchBackendStrategyWorkerRuns);
 const mockedFetchBackendStrategyWorkerSchedulerStatus = vi.mocked(fetchBackendStrategyWorkerSchedulerStatus);
 const mockedFetchBackendDatabaseConnectionStatus = vi.mocked(fetchBackendDatabaseConnectionStatus);
 const mockedFetchBackendDatabaseSchemaStatus = vi.mocked(fetchBackendDatabaseSchemaStatus);
 const mockedRunBackendStrategyWorkerOnceAndPersist = vi.mocked(runBackendStrategyWorkerOnceAndPersist);
+const mockedSaveBackendStrategyInstances = vi.mocked(saveBackendStrategyInstances);
+const mockedSetBackendStrategyInstanceEnabled = vi.mocked(setBackendStrategyInstanceEnabled);
 const mockedStartBackendStrategyWorkerScheduler = vi.mocked(startBackendStrategyWorkerScheduler);
 const mockedStopBackendStrategyWorkerScheduler = vi.mocked(stopBackendStrategyWorkerScheduler);
 
@@ -66,12 +75,15 @@ describe("strategy assembly mock store", () => {
     mockedFetchBackendMarketKlines.mockReset();
     mockedFetchBackendMarketTickers.mockReset();
     mockedFetchBackendPersistedStrategyData.mockReset();
+    mockedFetchBackendStrategyInstances.mockReset();
     mockedFetchBackendStrategyEvaluations.mockReset();
     mockedFetchBackendStrategyWorkerRuns.mockReset();
     mockedFetchBackendStrategyWorkerSchedulerStatus.mockReset();
     mockedFetchBackendDatabaseConnectionStatus.mockReset();
     mockedFetchBackendDatabaseSchemaStatus.mockReset();
     mockedRunBackendStrategyWorkerOnceAndPersist.mockReset();
+    mockedSaveBackendStrategyInstances.mockReset();
+    mockedSetBackendStrategyInstanceEnabled.mockReset();
     mockedStartBackendStrategyWorkerScheduler.mockReset();
     mockedStopBackendStrategyWorkerScheduler.mockReset();
   });
@@ -301,6 +313,93 @@ describe("strategy assembly mock store", () => {
     expect(store.getState().signals).toBe(previousSignals);
     expect(store.getState().strategyPersistenceStatus.error).toBe("persistence unavailable");
     expect(store.getState().strategyPersistenceStatus.source).toBe("mock");
+  });
+
+  it("refreshes strategy instances from backend without bypassing store state reconciliation", async () => {
+    const store = createBitSentinelStore();
+    const currentInstances = store.getState().strategyInstances;
+    const syncedInstance = {
+      ...currentInstances[0],
+      name: "后端策略配置",
+      symbols: ["BTCUSDT", "ETHUSDT"],
+      enabled: true,
+    };
+    mockedFetchBackendStrategyInstances.mockResolvedValue([syncedInstance]);
+
+    const result = await store.getState().refreshBackendStrategyInstances();
+
+    expect(mockedFetchBackendStrategyInstances).toHaveBeenCalledWith(currentInstances);
+    expect(result).toHaveLength(1);
+    expect(store.getState().strategyInstances[0]).toMatchObject({
+      id: syncedInstance.id,
+      name: "后端策略配置",
+      symbols: ["BTCUSDT", "ETHUSDT"],
+    });
+    expect(store.getState().strategyStates.filter((item) => item.instanceId === syncedInstance.id)).toHaveLength(2);
+    expect(store.getState().strategyConfigSyncStatus).toMatchObject({
+      source: "backend",
+      loading: false,
+      error: null,
+      savedCount: 1,
+    });
+  });
+
+  it("keeps local strategy instances when backend config source is empty", async () => {
+    const store = createBitSentinelStore();
+    const previousInstances = store.getState().strategyInstances;
+    mockedFetchBackendStrategyInstances.mockResolvedValue([]);
+
+    const result = await store.getState().refreshBackendStrategyInstances();
+
+    expect(result).toBe(previousInstances);
+    expect(store.getState().strategyInstances).toBe(previousInstances);
+    expect(store.getState().strategyConfigSyncStatus).toMatchObject({
+      source: "backend",
+      loading: false,
+      error: null,
+      savedCount: 0,
+    });
+  });
+
+  it("saves current strategy instances to backend and records saved count", async () => {
+    const store = createBitSentinelStore();
+    const currentInstances = store.getState().strategyInstances;
+    mockedSaveBackendStrategyInstances.mockResolvedValue(currentInstances);
+
+    const result = await store.getState().saveStrategyInstancesToBackend();
+
+    expect(mockedSaveBackendStrategyInstances).toHaveBeenCalledWith(currentInstances);
+    expect(result).toBe(currentInstances);
+    expect(store.getState().strategyConfigSyncStatus).toMatchObject({
+      source: "backend",
+      loading: false,
+      error: null,
+      savedCount: currentInstances.length,
+    });
+  });
+
+  it("keeps local strategy instances when backend config save fails", async () => {
+    const store = createBitSentinelStore();
+    const previousInstances = store.getState().strategyInstances;
+    mockedSaveBackendStrategyInstances.mockRejectedValue(new Error("config save unavailable"));
+
+    const result = await store.getState().saveStrategyInstancesToBackend();
+
+    expect(result).toBeNull();
+    expect(store.getState().strategyInstances).toBe(previousInstances);
+    expect(store.getState().strategyConfigSyncStatus.error).toBe("config save unavailable");
+  });
+
+  it("optimistically toggles strategy enabled state and syncs the backend flag", async () => {
+    const store = createBitSentinelStore();
+    const target = store.getState().strategyInstances[0];
+    mockedSetBackendStrategyInstanceEnabled.mockResolvedValue({ ...target, enabled: !target.enabled });
+
+    store.getState().toggleStrategyEnabled(target.id);
+    await Promise.resolve();
+
+    expect(store.getState().strategyInstances.find((item) => item.id === target.id)?.enabled).toBe(!target.enabled);
+    expect(mockedSetBackendStrategyInstanceEnabled).toHaveBeenCalledWith(target.id, !target.enabled);
   });
 
   it("runs backend strategy worker with persistence and refreshes persisted data", async () => {

@@ -2971,7 +2971,21 @@ function ReviewStats({ records }: { records: ReviewRecord[] }) {
 }
 
 function StrategyListPage() {
-  const { strategyInstances, strategyStates, signalLibrary, timeframeSlotTemplates, signals, symbols, backtestSnapshots, toggleStrategyEnabled, duplicateStrategy, updateStrategyInstance } = useAppStore();
+  const {
+    strategyInstances,
+    strategyStates,
+    signalLibrary,
+    timeframeSlotTemplates,
+    signals,
+    symbols,
+    backtestSnapshots,
+    strategyConfigSyncStatus,
+    refreshBackendStrategyInstances,
+    saveStrategyInstancesToBackend,
+    toggleStrategyEnabled,
+    duplicateStrategy,
+    updateStrategyInstance,
+  } = useAppStore();
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -3068,8 +3082,73 @@ function StrategyListPage() {
     setEditSlots(strategy.slots);
   };
 
+  const handleRefreshBackendStrategyInstances = async () => {
+    const nextInstances = await refreshBackendStrategyInstances();
+    const error = useAppStore.getState().strategyConfigSyncStatus.error;
+    if (error) {
+      notification.error({ message: "后端策略配置同步失败", description: error, placement: "bottomRight" });
+      return;
+    }
+    notification.success({
+      message: "后端策略配置已同步",
+      description: nextInstances.length > 0 ? `已读取 ${nextInstances.length} 个策略配置。` : "后端暂无策略配置，已保留当前本地列表。",
+      placement: "bottomRight",
+    });
+  };
+
+  const handleSaveStrategyInstancesToBackend = async () => {
+    const saved = await saveStrategyInstancesToBackend();
+    if (!saved) {
+      notification.error({
+        message: "策略配置保存失败",
+        description: useAppStore.getState().strategyConfigSyncStatus.error ?? "请检查后端服务。",
+        placement: "bottomRight",
+      });
+      return;
+    }
+    notification.success({
+      message: "策略配置已保存到后端",
+      description: `已保存 ${saved.length} 个策略实例。`,
+      placement: "bottomRight",
+    });
+  };
+
   return (
     <Space direction="vertical" size={16} className="page-stack">
+      <Card>
+        <Flex justify="space-between" align="center" gap={16} wrap>
+          <Space direction="vertical" size={4}>
+            <Title level={4} className="page-title">后端策略配置</Title>
+            <Space wrap>
+              <Tag color={strategyConfigSyncStatus.source === "backend" ? "blue" : "gold"}>
+                {strategyConfigSyncStatus.source === "backend" ? "后端配置" : "本地模拟"}
+              </Tag>
+              <Text type="secondary">最近同步：{strategyConfigSyncStatus.lastSyncedAt ?? "尚未同步"}</Text>
+              <Text type="secondary">保存数量：{strategyConfigSyncStatus.savedCount}</Text>
+            </Space>
+          </Space>
+          <Space wrap>
+            <Button
+              loading={strategyConfigSyncStatus.loading}
+              icon={<RefreshCw size={16} />}
+              onClick={() => void handleRefreshBackendStrategyInstances()}
+            >
+              同步后端配置
+            </Button>
+            <Button
+              type="primary"
+              loading={strategyConfigSyncStatus.loading}
+              icon={<Database size={16} />}
+              onClick={() => void handleSaveStrategyInstancesToBackend()}
+            >
+              保存当前配置
+            </Button>
+          </Space>
+        </Flex>
+        {strategyConfigSyncStatus.error && (
+          <Alert className="section-alert" type="warning" showIcon message="后端策略配置同步失败" description={strategyConfigSyncStatus.error} />
+        )}
+      </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} md={6}><Card><Statistic title="已创建策略" value={strategyInstances.length} /></Card></Col>
         <Col xs={24} md={6}><Card><Statistic title="挂载币种" value={strategyInstances.reduce((sum, item) => sum + item.symbols.length, 0)} /></Card></Col>

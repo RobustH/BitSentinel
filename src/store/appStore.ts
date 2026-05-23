@@ -16,11 +16,14 @@ import {
 import { fetchFuturesMoneyFlows, fetchSpotKlines, fetchSpotTickers } from "../services/binanceApi";
 import { fetchBackendIndicatorSummary, fetchBackendMarketKlines, fetchBackendMarketTickers } from "../services/backendMarketApi";
 import {
+  fetchBackendStrategyInstances,
   fetchBackendPersistedStrategyData,
   fetchBackendStrategyEvaluations,
   fetchBackendStrategyWorkerRuns,
   fetchBackendStrategyWorkerSchedulerStatus,
   runBackendStrategyWorkerOnceAndPersist,
+  saveBackendStrategyInstances,
+  setBackendStrategyInstanceEnabled,
   startBackendStrategyWorkerScheduler,
   stopBackendStrategyWorkerScheduler,
 } from "../services/backendStrategyApi";
@@ -49,6 +52,7 @@ import type {
   StrategyPersistenceStatus,
   StrategyInstance,
   StrategyEvaluationResult,
+  StrategyConfigSyncStatus,
   StrategyState,
   StrategyWorkerSchedulerStatus,
   StrategyTemplate,
@@ -82,6 +86,7 @@ type AppState = {
   klineRefreshStatus: KlineRefreshStatus;
   indicatorRefreshStatus: IndicatorRefreshStatus;
   strategyPersistenceStatus: StrategyPersistenceStatus;
+  strategyConfigSyncStatus: StrategyConfigSyncStatus;
   databaseConnectionStatus: DatabaseConnectionStatus;
   databaseSchemaStatus: DatabaseSchemaStatus;
   marketStreamStatus: MarketStreamStatus;
@@ -91,6 +96,8 @@ type AppState = {
   refreshBackendKlines: (symbol: string, interval?: string) => Promise<void>;
   refreshBackendIndicatorSummary: (symbol: string, interval?: string) => Promise<void>;
   refreshPersistedStrategyData: () => Promise<void>;
+  refreshBackendStrategyInstances: () => Promise<StrategyInstance[]>;
+  saveStrategyInstancesToBackend: () => Promise<StrategyInstance[] | null>;
   refreshWorkerRunHistory: () => Promise<void>;
   runStrategyWorkerOnceAndPersist: () => Promise<StrategyWorkerRunSummary | null>;
   refreshWorkerSchedulerStatus: () => Promise<void>;
@@ -181,6 +188,14 @@ const defaultWorkerSchedulerStatus: StrategyWorkerSchedulerStatus = {
   skippedCount: 0,
 };
 
+const defaultStrategyConfigSyncStatus: StrategyConfigSyncStatus = {
+  source: "mock",
+  loading: false,
+  lastSyncedAt: null,
+  error: null,
+  savedCount: 0,
+};
+
 const applyTickerToKline = (series: KlinePoint[] = [], update: BinanceTickerUpdate): KlinePoint[] => {
   if (!series.length) return series;
   const next = [...series];
@@ -268,6 +283,27 @@ const buildPersistedStrategySymbols = (
   });
 };
 
+const reconcileStrategyStatesForInstances = (
+  existingStates: StrategyState[],
+  instances: StrategyInstance[],
+): StrategyState[] => {
+  const nextStates = instances.flatMap((instance) =>
+    instance.symbols.map((symbol) => {
+      const existing = existingStates.find(
+        (state) => state.instanceId === instance.id && state.symbol === symbol,
+      );
+      return existing ?? {
+        instanceId: instance.id,
+        symbol,
+        state: "watching" as const,
+        lastUpdated: "刚刚",
+        nextWaitingFor: "从后端策略配置同步，等待方向周期条件满足",
+      };
+    }),
+  );
+  return nextStates;
+};
+
 const initialState = {
   activeSection: "dashboard",
   selectedSignalId: null,
@@ -318,6 +354,7 @@ const initialState = {
     workerRunHistory: [],
     schedulerStatus: defaultWorkerSchedulerStatus,
   },
+  strategyConfigSyncStatus: defaultStrategyConfigSyncStatus,
   databaseConnectionStatus: {
     connected: null,
     loading: false,
@@ -511,6 +548,97 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
           error: error instanceof Error ? error.message : "后端持久化策略数据刷新失败",
         },
       });
+    }
+  },
+  refreshBackendStrategyInstances: async () => {
+    set({
+      strategyConfigSyncStatus: {
+        ...get().strategyConfigSyncStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const backendInstances = await fetchBackendStrategyInstances(get().strategyInstances);
+      if (backendInstances.length === 0) {
+        set({
+          strategyConfigSyncStatus: {
+            source: "backend",
+            loading: false,
+            lastSyncedAt: nowText(),
+            error: null,
+            savedCount: 0,
+          },
+        });
+        return get().strategyInstances;
+      }
+
+      const strategyStates = reconcileStrategyStatesForInstances(
+        get().strategyStates,
+        backendInstances,
+      );
+      set({
+        strategyInstances: backendInstances,
+        strategyStates,
+        symbols: buildPersistedStrategySymbols(get().symbols, strategyStates),
+        strategyConfigSyncStatus: {
+          source: "backend",
+          loading: false,
+          lastSyncedAt: nowText(),
+          error: null,
+          savedCount: backendInstances.length,
+        },
+      });
+      return backendInstances;
+    } catch (error) {
+      set({
+        strategyConfigSyncStatus: {
+          ...get().strategyConfigSyncStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端策略配置同步失败",
+        },
+      });
+      return get().strategyInstances;
+    }
+  },
+  saveStrategyInstancesToBackend: async () => {
+    set({
+      strategyConfigSyncStatus: {
+        ...get().strategyConfigSyncStatus,
+        loading: true,
+        error: null,
+      },
+    });
+
+    try {
+      const savedInstances = await saveBackendStrategyInstances(get().strategyInstances);
+      const strategyStates = reconcileStrategyStatesForInstances(
+        get().strategyStates,
+        savedInstances,
+      );
+      set({
+        strategyInstances: savedInstances,
+        strategyStates,
+        symbols: buildPersistedStrategySymbols(get().symbols, strategyStates),
+        strategyConfigSyncStatus: {
+          source: "backend",
+          loading: false,
+          lastSyncedAt: nowText(),
+          error: null,
+          savedCount: savedInstances.length,
+        },
+      });
+      return savedInstances;
+    } catch (error) {
+      set({
+        strategyConfigSyncStatus: {
+          ...get().strategyConfigSyncStatus,
+          loading: false,
+          error: error instanceof Error ? error.message : "后端策略配置保存失败",
+        },
+      });
+      return null;
     }
   },
   refreshWorkerRunHistory: async () => {
@@ -992,8 +1120,21 @@ const createStoreBody = (set: (partial: Partial<AppState>) => void, get: () => A
     return id;
   },
   toggleStrategyEnabled: (instanceId) => {
+    const current = get().strategyInstances.find((item) => item.id === instanceId);
+    if (!current) return;
+    const nextEnabled = !current.enabled;
     set({
-      strategyInstances: get().strategyInstances.map((item) => (item.id === instanceId ? { ...item, enabled: !item.enabled } : item)),
+      strategyInstances: get().strategyInstances.map((item) =>
+        item.id === instanceId ? { ...item, enabled: nextEnabled } : item,
+      ),
+    });
+    void setBackendStrategyInstanceEnabled(instanceId, nextEnabled).catch((error) => {
+      set({
+        strategyConfigSyncStatus: {
+          ...get().strategyConfigSyncStatus,
+          error: error instanceof Error ? error.message : "后端策略启停同步失败",
+        },
+      });
     });
   },
   duplicateStrategy: (instanceId) => {

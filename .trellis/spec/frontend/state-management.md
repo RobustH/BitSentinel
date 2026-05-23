@@ -589,6 +589,83 @@ void refreshWorkerRunHistory();
 
 ---
 
+## 前端策略配置同步后端约定
+
+### 1. Scope / Trigger
+- Trigger: 后端提供策略实例配置事实源，前端需要读取和保存策略配置。
+- Scope: 只同步策略实例配置，不同步策略运行状态、信号、复盘、回测、Worker 调度或真实交易。
+
+### 2. Signatures
+- API client：
+  - `fetchBackendStrategyInstances(currentInstances)`
+  - `saveBackendStrategyInstances(instances)`
+  - `setBackendStrategyInstanceEnabled(instanceId, enabled)`
+- Store action：
+  - `refreshBackendStrategyInstances(): Promise<StrategyInstance[]>`
+  - `saveStrategyInstancesToBackend(): Promise<StrategyInstance[] | null>`
+  - `toggleStrategyEnabled(instanceId): void`
+- Store state：`strategyConfigSyncStatus`
+- Backend endpoints：
+  - `GET /api/strategy/instances`
+  - `POST /api/strategy/instances`
+  - `PUT /api/strategy/instances/{instance_id}`
+  - `POST /api/strategy/instances/{instance_id}/enable`
+  - `POST /api/strategy/instances/{instance_id}/disable`
+
+### 3. Contracts
+- API client 负责 DTO 转换：
+  - `condition_ids` -> `conditionIds`
+  - `risk_signal_ids` -> `riskSignalIds`
+  - `signal_ids_by_slot` -> `signalIdsBySlot`
+- 后端当前不保存前端专用的 `slots`、`templateId`、`slotTemplateId`、`versionHistory`；同步时必须优先按相同 `id` 合并保留本地字段。
+- 后端返回新策略且本地没有同 `id` 时，前端可使用保守默认槽位：`direction_tf=1d`、`structure_tf=4h`、`trigger_tf=1h`。
+- `refreshBackendStrategyInstances` 成功且后端非空时，必须同步重建 `strategyStates`，粒度仍是 `strategyInstanceId + symbol`。
+- `refreshBackendStrategyInstances` 成功但后端返回空数组时，不得清空本地策略列表；应标记后端已同步且 `savedCount=0`。
+- `saveStrategyInstancesToBackend` 失败时返回 `null`，保留本地策略配置，只写入 `strategyConfigSyncStatus.error`。
+- 页面组件只能调用 store action，不得直接请求策略配置 API。
+- 启停策略可以乐观更新本地状态，再调用后端 enable/disable 接口；失败时记录错误，不回滚用户刚刚看到的本地切换。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 后端返回策略列表 | 写入 `strategyInstances`，重建对应 `strategyStates` |
+| 后端返回空数组 | 保留本地策略配置，显示后端暂无配置 |
+| 后端请求失败 | 保留本地策略配置，写入错误 |
+| 保存部分或全部失败 | action 返回 `null`，保留本地策略配置 |
+| 后端缺少前端专用字段 | 合并本地已有字段或使用默认槽位 |
+| 启停同步失败 | 保留本地乐观状态，写入错误供页面提示 |
+
+### 5. Good/Base/Bad Cases
+- Good: 策略列表页点击“同步后端配置”，组件只调用 `refreshBackendStrategyInstances`，成功后展示后端来源。
+- Base: 新数据库暂无策略配置时，页面仍保留本地 mock 策略，用户可点击“保存当前配置”初始化后端配置。
+- Bad: 组件直接 `fetch("/api/strategy/instances")`，或后端空数组时把前端策略列表清空。
+
+### 6. Tests Required
+- 成功分支：断言 store 调用 API client，写入策略配置并重建 `strategyStates`。
+- 空数组分支：断言本地 `strategyInstances` 对象引用保留，`savedCount=0`。
+- 保存成功：断言传入当前策略列表，写入后端来源和保存数量。
+- 保存失败：断言返回 `null`，旧策略配置保留，错误写入状态。
+- 启停策略：断言本地立即切换，并调用后端 enable/disable client。
+- TypeScript build 必须通过。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```typescript
+// 组件直接请求，空后端会被误处理为删除所有本地策略
+const rows = await fetch("/api/strategy/instances").then((response) => response.json());
+setStrategyInstances(rows);
+```
+
+#### Correct
+```typescript
+// Store action 统一处理 DTO 转换、空后端保留和状态重建
+void refreshBackendStrategyInstances();
+```
+
+
+---
+
 ## 前端 Worker 定时调度控制约定
 
 ### 1. Scope / Trigger

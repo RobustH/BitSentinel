@@ -132,6 +132,18 @@ type BackendStrategyWorkerSchedulerStatus = {
   skipped_count: number;
 };
 
+type BackendStrategyInstance = {
+  id: string;
+  name: string;
+  symbols: string[];
+  enabled: boolean;
+  condition_ids: string[];
+  risk_signal_ids: string[];
+  signal_ids_by_slot: Record<string, string[]>;
+  created_at: string;
+  updated_at: string;
+};
+
 type FetchBackendStrategyEvaluationsInput = {
   strategyInstances: StrategyInstance[];
   marketSeries: Record<string, KlinePoint[]>;
@@ -225,6 +237,16 @@ const toBackendWorkerRequest = (input: RunBackendStrategyWorkerInput): BackendSt
   })),
 });
 
+const toBackendStrategyInstance = (instance: StrategyInstance) => ({
+  id: instance.id,
+  name: instance.name,
+  symbols: instance.symbols,
+  enabled: instance.enabled,
+  condition_ids: instance.conditionIds,
+  risk_signal_ids: instance.riskSignalIds,
+  signal_ids_by_slot: instance.signalIdsBySlot as Record<string, string[]>,
+});
+
 const toSlotKey = (slotKey: string | null): TimeframeSlotKey | undefined => {
   if (slotKey === "direction_tf" || slotKey === "structure_tf" || slotKey === "trigger_tf") return slotKey;
   return undefined;
@@ -295,6 +317,32 @@ const toFrontendSchedulerStatus = (row: BackendStrategyWorkerSchedulerStatus): S
   skippedCount: row.skipped_count,
 });
 
+const defaultBackendSlots: Record<TimeframeSlotKey, string> = {
+  direction_tf: "1d",
+  structure_tf: "4h",
+  trigger_tf: "1h",
+};
+
+const toFrontendStrategyInstance = (
+  row: BackendStrategyInstance,
+  existing?: StrategyInstance,
+): StrategyInstance => ({
+  id: row.id,
+  templateId: existing?.templateId ?? "backend-strategy",
+  slotTemplateId: existing?.slotTemplateId ?? "backend-strategy",
+  name: row.name,
+  version: existing?.version ?? 1,
+  versionHistory: existing?.versionHistory ?? [
+    { version: 1, changedAt: row.updated_at, summary: "从后端策略配置同步" },
+  ],
+  symbols: row.symbols,
+  enabled: row.enabled,
+  slots: existing?.slots ?? defaultBackendSlots,
+  signalIdsBySlot: row.signal_ids_by_slot as Partial<Record<TimeframeSlotKey, string[]>>,
+  riskSignalIds: row.risk_signal_ids,
+  conditionIds: row.condition_ids,
+});
+
 export async function fetchBackendStrategyEvaluations(
   input: FetchBackendStrategyEvaluationsInput,
 ): Promise<StrategyEvaluationResult[]> {
@@ -358,6 +406,61 @@ export async function fetchBackendStrategyWorkerRuns(limit = 10): Promise<Strate
 export async function fetchBackendStrategyWorkerSchedulerStatus(): Promise<StrategyWorkerSchedulerStatus> {
   const payload = await requestJson<BackendStrategyWorkerSchedulerStatus>("/api/strategy/worker/scheduler/status");
   return toFrontendSchedulerStatus(payload);
+}
+
+export async function fetchBackendStrategyInstances(
+  currentInstances: StrategyInstance[] = [],
+): Promise<StrategyInstance[]> {
+  const payload = await requestJson<BackendStrategyInstance[]>("/api/strategy/instances");
+  const existingById = new Map(currentInstances.map((instance) => [instance.id, instance]));
+  return payload.map((row) => toFrontendStrategyInstance(row, existingById.get(row.id)));
+}
+
+export async function saveBackendStrategyInstances(
+  instances: StrategyInstance[],
+): Promise<StrategyInstance[]> {
+  const existing = await requestJson<BackendStrategyInstance[]>("/api/strategy/instances");
+  const existingIds = new Set(existing.map((item) => item.id));
+
+  const saved = await Promise.all(
+    instances.map(async (instance) => {
+      const exists = existingIds.has(instance.id);
+      const response = await fetch(
+        `${BACKEND_API_BASE_URL}/api/strategy/instances${exists ? `/${instance.id}` : ""}`,
+        {
+          method: exists ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(toBackendStrategyInstance(instance)),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Backend strategy instance save failed: ${response.status}`);
+      }
+
+      return (await response.json()) as BackendStrategyInstance;
+    }),
+  );
+
+  const currentById = new Map(instances.map((instance) => [instance.id, instance]));
+  return saved.map((row) => toFrontendStrategyInstance(row, currentById.get(row.id)));
+}
+
+export async function setBackendStrategyInstanceEnabled(
+  instanceId: string,
+  enabled: boolean,
+): Promise<StrategyInstance> {
+  const response = await fetch(
+    `${BACKEND_API_BASE_URL}/api/strategy/instances/${instanceId}/${enabled ? "enable" : "disable"}`,
+    { method: "POST" },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Backend strategy instance toggle failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as BackendStrategyInstance;
+  return toFrontendStrategyInstance(payload);
 }
 
 export async function startBackendStrategyWorkerScheduler({

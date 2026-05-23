@@ -235,6 +235,14 @@ export type StrategyPersistenceStatus = {
   schedulerStatus: StrategyWorkerSchedulerStatus;
 };
 
+export type StrategyConfigSyncStatus = {
+  source: "mock" | "backend";
+  loading: boolean;
+  lastSyncedAt: string | null;
+  error: string | null;
+  savedCount: number;
+};
+
 export type StrategyWorkerRunSummary = {
   runId: string;
   ranAt?: string;
