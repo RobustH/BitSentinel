@@ -1136,3 +1136,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: Worker调度读取后端策略配置
+
+**Date**: 2026-05-23
+**Task**: Worker调度读取后端策略配置
+**Branch**: `main`
+
+### Summary
+
+完成 Worker 定时调度的数据库配置模式：后端支持 config_source=database 时每轮读取 strategy_instances 中已启用策略并复用持久化状态/信号，前端启动调度改为只发送调度配置，保留旧 request 快照模式兼容；补充后端、前端测试和 Trellis 规格。验证通过 backend pytest、ruff、frontend test、tsc 和 build。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1297473` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 34
+- **Total Sessions**: 35
 - **Last Active**: 2026-05-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1138 | Active |
+| `journal-1.md` | ~1171 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 35 | 2026-05-23 | Worker调度读取后端策略配置 | `1297473` | `main` |
 | 34 | 2026-05-23 | 策略配置完整持久化 | `e69c6f5` | `main` |
 | 33 | 2026-05-23 | 前端策略配置同步后端 | `9d0aec3` | `main` |
 | 32 | 2026-05-23 | 后端策略配置事实源 | `fb2dc7a` | `main` |
