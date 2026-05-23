@@ -1,0 +1,3 @@
+{"type":"context","text":"实现前端 Worker 调度控制。读取 .trellis/spec/frontend/index.md、state-management.md、type-safety.md、component-guidelines.md、quality-guidelines.md。"}
+{"type":"context","text":"同时参考 .trellis/spec/architecture/backend-roadmap.md 中“策略 Worker 定时调度契约”。"}
+{"type":"plan","text":"在 src/types.ts 增加 StrategyWorkerSchedulerStatus；在 src/services/backendStrategyApi.ts 增加 start/stop/status API；在 src/store/appStore.ts 增加 schedulerStatus 和 action；在 src/App.tsx 策略监控中心新增调度状态卡片和按钮。"}
