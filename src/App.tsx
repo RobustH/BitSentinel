@@ -3502,6 +3502,20 @@ function SettingsPage() {
             </Space>
           </Descriptions.Item>
         </Descriptions>
+        {databaseSchemaStatus.missingTables.length > 0 && (
+          <Alert
+            className="section-alert"
+            type="info"
+            showIcon
+            message="需要初始化数据库表"
+            description={
+              <Space direction="vertical" size={4}>
+                <Text>在后端目录执行初始化命令：<Text code>python -m app.scripts.init_db</Text></Text>
+                <Text type="secondary">命令会读取后端 .env 或 BITSENTINEL_DATABASE_URL，只创建当前缺失的受管理表，不会在网页端执行。</Text>
+              </Space>
+            }
+          />
+        )}
         {databaseSchemaStatus.error && (
           <Alert className="section-alert" type="warning" showIcon message="数据库表状态检查失败" description={databaseSchemaStatus.error} />
         )}
