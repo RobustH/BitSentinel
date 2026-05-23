@@ -797,7 +797,9 @@ return repository.list_worker_runs(limit=20)
   - `database`：新模式，`worker_request` 可为空，调度器每轮从 `strategy_instances` 读取已启用策略。
 - `interval_seconds` 必须有上下限校验，避免过高频或异常间隔。
 - `database` 模式每轮运行都重新读取策略配置、当前持久化状态和信号，避免启动后配置变更不生效。
-- `database` 模式第一版不自行拉取行情/K 线；若没有行情事实源，Worker 会按空 `market_series` 运行，后续由后端行情事实源任务补齐。
+- `database` 模式每轮根据 enabled 策略的去重 `symbols` 拉取后端公共 K 线事实源，并构造 `market_series`；当前固定 `interval=1h`、`limit=80`。
+- 调度行情源第一版复用 Binance REST 公共 K 线服务，不新增行情落库；后续可替换为数据库/缓存行情源。
+- `database` 模式暂不构造资金流输入，`money_flows=[]`，资金费率/OI/主动买卖比由后续任务补齐。
 - `persist=true` 时，调度器复用 `StrategyPersistenceRepository` 写入状态、信号和运行历史，并由调度器控制事务提交。
 - `persist=false` 且 `config_source=request` 时，调度器不访问数据库。
 - `persist=false` 且 `config_source=database` 时，调度器仍需打开数据库 session 读取策略配置，但不写入运行结果。
@@ -815,6 +817,7 @@ return repository.list_worker_runs(limit=20)
 | 调度器已运行时再次启动 | 停止旧任务，使用新配置启动 |
 | `request` 模式且 `persist=false` | 不打开数据库 session |
 | `database` 模式且没有 enabled 策略 | 本轮评估数为 0，不视为启动失败 |
+| `database` 模式某个 symbol K 线拉取失败 | 该 symbol 使用空序列，本轮继续运行，并把警告写入调度状态 |
 | `persist=true` 且数据库写入失败 | 捕获错误写入 `last_error`，调度循环继续 |
 | 后端进程重启 | 调度状态丢失，需要调用方重新启动 |
 
@@ -826,9 +829,39 @@ return repository.list_worker_runs(limit=20)
 
 #### 6. Tests Required
 
-- service 测试覆盖启动、立即运行、停止、`request + persist=false` 不访问数据库、`database` 模式读取 enabled 策略。
+- service 测试覆盖启动、立即运行、停止、`request + persist=false` 不访问数据库、`database` 模式读取 enabled 策略、按 enabled 策略 symbol 拉取 K 线、行情警告不终止调度。
 - API 测试覆盖 request 模式、database 模式、start/status/stop、interval 参数校验和 request 模式缺少 `worker_request`。
 - `ruff check .` 和 `pytest` 必须通过。
+
+#### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+# database 模式仍用空行情，调度只能空转
+return StrategyWorkerRunRequest(
+    strategy_instances=strategy_instances,
+    market_series={},
+    money_flows=[],
+)
+```
+
+#### Correct
+
+```python
+# database 模式从 enabled 策略收集 symbol，并通过可替换行情源构造 Worker 输入
+symbols = _collect_symbols(strategy_instances)
+market_series, warnings = await market_data_source.fetch_market_series(
+    symbols,
+    interval="1h",
+    limit=80,
+)
+return StrategyWorkerRunRequest(
+    strategy_instances=strategy_instances,
+    market_series=market_series,
+    money_flows=[],
+)
+```
 
 ### 后端策略实例配置事实源契约
 

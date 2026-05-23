@@ -16,20 +16,27 @@ from app.models.strategy import (
     StrategyWorkerScheduleRequest,
     StrategyWorkerSchedulerStatus,
 )
+from app.services.market_data.strategy_source import (
+    BinanceStrategyMarketDataSource,
+    StrategyMarketDataSource,
+)
 from app.services.strategy_engine.evaluator import StrategyEvaluator
 from app.services.strategy_engine.repository import StrategyPersistenceRepository
 from app.services.strategy_engine.worker import StrategyWorker
 
 SessionFactory = Callable[[], Session]
+SCHEDULER_KLINE_INTERVAL = "1h"
+SCHEDULER_KLINE_LIMIT = 80
 
 
 class StrategyWorkerScheduler:
-    def __init__(self) -> None:
+    def __init__(self, market_data_source: StrategyMarketDataSource | None = None) -> None:
         self._task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self._request: StrategyWorkerScheduleRequest | None = None
         self._status = StrategyWorkerSchedulerStatus(running=False)
         self._in_progress = False
+        self._market_data_source = market_data_source or BinanceStrategyMarketDataSource()
 
     async def start(
         self,
@@ -95,7 +102,7 @@ class StrategyWorkerScheduler:
             worker = StrategyWorker(StrategyEvaluator())
             if self._request.config_source == "database":
                 session = session_factory()
-            request = self._build_worker_request(session)
+            request, warnings = await self._build_worker_request(session)
             response = worker.run_once(request)
 
             if self._request.persist:
@@ -111,7 +118,7 @@ class StrategyWorkerScheduler:
             self._status.run_count += 1
             self._status.last_run_at = response.ran_at
             self._status.last_run_id = response.run_id
-            self._status.last_error = None
+            self._status.last_error = "; ".join(warnings) if warnings else None
         except Exception as exc:
             if session is not None:
                 session.rollback()
@@ -121,14 +128,17 @@ class StrategyWorkerScheduler:
                 session.close()
             self._in_progress = False
 
-    def _build_worker_request(self, session: Session | None) -> StrategyWorkerRunRequest:
+    async def _build_worker_request(
+        self,
+        session: Session | None,
+    ) -> tuple[StrategyWorkerRunRequest, list[str]]:
         if self._request is None:
             raise RuntimeError("Scheduler request is not configured")
 
         if self._request.config_source == "request":
             if self._request.worker_request is None:
                 raise RuntimeError("worker_request is required for request config source")
-            return self._request.worker_request
+            return self._request.worker_request, []
 
         if session is None:
             raise RuntimeError("Database config source requires a database session")
@@ -141,13 +151,22 @@ class StrategyWorkerScheduler:
         ]
         states = [_to_existing_state_input(state) for state in repository.list_states()]
         signals = [_to_existing_signal_input(signal) for signal in repository.list_signals()]
+        symbols = _collect_symbols(strategy_instances)
+        market_series, warnings = await self._market_data_source.fetch_market_series(
+            symbols,
+            interval=SCHEDULER_KLINE_INTERVAL,
+            limit=SCHEDULER_KLINE_LIMIT,
+        )
 
-        return StrategyWorkerRunRequest(
-            strategy_instances=strategy_instances,
-            market_series={},
-            money_flows=[],
-            existing_signals=signals,
-            existing_states=states,
+        return (
+            StrategyWorkerRunRequest(
+                strategy_instances=strategy_instances,
+                market_series=market_series,
+                money_flows=[],
+                existing_signals=signals,
+                existing_states=states,
+            ),
+            warnings,
         )
 
 
@@ -181,6 +200,10 @@ def _to_existing_signal_input(signal: PersistedStrategySignal) -> ExistingSignal
         symbol=signal.symbol,
         strength=signal.strength,
     )
+
+
+def _collect_symbols(strategy_instances: list[StrategyInstanceInput]) -> list[str]:
+    return sorted({symbol for instance in strategy_instances for symbol in instance.symbols})
 
 
 strategy_worker_scheduler = StrategyWorkerScheduler()

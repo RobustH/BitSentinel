@@ -7,10 +7,14 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.main import create_app
-from app.models.strategy import StrategyInstanceCreateRequest, StrategyWorkerScheduleRequest
+from app.models.strategy import (
+    StrategyInstanceCreateRequest,
+    StrategyKlineInput,
+    StrategyWorkerScheduleRequest,
+)
 from app.services.strategy_engine.repository import StrategyPersistenceRepository
 from app.services.strategy_engine.scheduler import StrategyWorkerScheduler
-from tests.test_strategy_worker import _request
+from tests.test_strategy_worker import _bullish_series, _request
 
 
 def _unused_session_factory():
@@ -50,6 +54,27 @@ def _seed_strategy_instances(session: Session) -> None:
     session.commit()
 
 
+class FakeMarketDataSource:
+    def __init__(
+        self,
+        market_series: dict[str, list[StrategyKlineInput]] | None = None,
+        warnings: list[str] | None = None,
+    ) -> None:
+        self.market_series = market_series or {}
+        self.warnings = warnings or []
+        self.calls: list[tuple[list[str], str, int]] = []
+
+    async def fetch_market_series(
+        self,
+        symbols: list[str],
+        *,
+        interval: str,
+        limit: int,
+    ) -> tuple[dict[str, list[StrategyKlineInput]], list[str]]:
+        self.calls.append((symbols, interval, limit))
+        return self.market_series, self.warnings
+
+
 def test_strategy_worker_scheduler_runs_and_stops_without_persistence() -> None:
     async def run_case() -> None:
         scheduler = StrategyWorkerScheduler()
@@ -79,7 +104,8 @@ def test_strategy_worker_scheduler_runs_and_stops_without_persistence() -> None:
 
 def test_strategy_worker_scheduler_can_read_strategy_instances_from_database() -> None:
     async def run_case() -> None:
-        scheduler = StrategyWorkerScheduler()
+        market_data_source = FakeMarketDataSource({"BTCUSDT": _bullish_series()})
+        scheduler = StrategyWorkerScheduler(market_data_source=market_data_source)
         factory = _session_factory()
         with factory() as session:
             _seed_strategy_instances(session)
@@ -103,6 +129,37 @@ def test_strategy_worker_scheduler_can_read_strategy_instances_from_database() -
         assert running_status.run_count == 1
         assert running_status.last_error is None
         assert [state.strategy_instance_id for state in states] == ["enabled-strategy"]
+        assert market_data_source.calls == [(["BTCUSDT"], "1h", 80)]
+
+    asyncio.run(run_case())
+
+
+def test_strategy_worker_scheduler_keeps_running_when_market_source_warns() -> None:
+    async def run_case() -> None:
+        market_data_source = FakeMarketDataSource(
+            {"BTCUSDT": []},
+            warnings=["BTCUSDT kline request failed: ConnectError"],
+        )
+        scheduler = StrategyWorkerScheduler(market_data_source=market_data_source)
+        factory = _session_factory()
+        with factory() as session:
+            _seed_strategy_instances(session)
+
+        await scheduler.start(
+            StrategyWorkerScheduleRequest(
+                config_source="database",
+                interval_seconds=5,
+                persist=True,
+            ),
+            session_factory=factory,
+        )
+        await asyncio.sleep(0)
+        running_status = scheduler.status()
+        await scheduler.stop()
+
+        assert running_status.run_count == 1
+        assert running_status.last_run_id is not None
+        assert running_status.last_error == "BTCUSDT kline request failed: ConnectError"
 
     asyncio.run(run_case())
 
@@ -138,6 +195,10 @@ def test_strategy_worker_scheduler_api_can_start_with_database_config(
         _seed_strategy_instances(session)
 
     monkeypatch.setattr("app.api.strategy.SessionLocal", factory)
+    monkeypatch.setattr(
+        "app.services.strategy_engine.scheduler.strategy_worker_scheduler._market_data_source",
+        FakeMarketDataSource({"BTCUSDT": _bullish_series()}),
+    )
     client = TestClient(create_app())
 
     start_response = client.post(
