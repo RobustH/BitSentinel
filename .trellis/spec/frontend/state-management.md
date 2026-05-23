@@ -662,6 +662,8 @@ void refreshDatabaseConnectionStatus();
 - Store action 失败时保留旧表状态，只写入错误状态。
 - 页面组件只能调用 store action，不得直接 fetch。
 - 页面不得提供建表按钮；初始化仍通过后端 CLI 或后续受认证管理入口完成。
+- 缺表时页面可以展示只读初始化指引，命令固定为 `python -m app.scripts.init_db`，并说明命令读取后端 `.env` / `BITSENTINEL_DATABASE_URL`。
+- 初始化指引不得展示数据库用户名、密码或完整连接串。
 
 ### 4. Validation & Error Matrix
 | 条件 | 处理 |
@@ -673,7 +675,7 @@ void refreshDatabaseConnectionStatus();
 
 ### 5. Good/Base/Bad Cases
 - Good: 系统设置页点击“检查表状态”，展示受管理表、已存在表、缺失表。
-- Base: 尚未检查时显示“未检查”。
+- Base: 尚未检查时显示“未检查”；缺表时显示后端 CLI 初始化指引。
 - Bad: 页面提供“初始化数据库”按钮，或把 database URL 写入前端状态。
 
 ### 6. Tests Required
