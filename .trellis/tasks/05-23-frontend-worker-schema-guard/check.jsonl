@@ -1,0 +1,1 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查 Worker 入库前置提示是否只依赖已有诊断状态、不执行建表、不破坏未知状态下的原流程。"}

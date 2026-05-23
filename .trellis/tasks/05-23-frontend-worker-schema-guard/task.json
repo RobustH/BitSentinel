@@ -1,0 +1,29 @@
+{
+  "id": "frontend-worker-schema-guard",
+  "name": "frontend-worker-schema-guard",
+  "title": "Worker入库前置诊断提示",
+  "description": "",
+  "status": "done",
+  "dev_type": "frontend",
+  "scope": "worker-persistence-guard",
+  "package": "src",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "0ddb0b1",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/App.tsx",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "策略监控页运行 Worker 入库前，如果已知数据库受管理表缺失，则提示缺失表和初始化命令并阻止本次请求。",
+  "meta": {}
+}
