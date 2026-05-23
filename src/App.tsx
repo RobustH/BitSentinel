@@ -141,6 +141,7 @@ const fallbackSignalLabels: Record<string, string> = {
 };
 
 const timeframeOptions = ["15m", "1h", "4h", "1d"];
+const workerSchedulerPollIntervalMs = 5_000;
 
 type ReviewRecord = {
   id: string;
@@ -1614,6 +1615,44 @@ function StrategyMonitorCenter() {
 
   const activeSummary = strategySummaries.find((item) => item.instance.id === activeInstanceId);
   const schedulerStatus = strategyPersistenceStatus.schedulerStatus;
+  const syncedSchedulerRunCountRef = useRef(schedulerStatus.runCount);
+
+  useEffect(() => {
+    if (!schedulerStatus.running) {
+      syncedSchedulerRunCountRef.current = schedulerStatus.runCount;
+      return undefined;
+    }
+
+    let cancelled = false;
+    const refreshScheduledWorkerData = async () => {
+      await refreshWorkerSchedulerStatus();
+      if (cancelled) return;
+
+      const latestStatus = useAppStore.getState().strategyPersistenceStatus.schedulerStatus;
+      if (latestStatus.runCount <= syncedSchedulerRunCountRef.current) return;
+
+      syncedSchedulerRunCountRef.current = latestStatus.runCount;
+      await refreshPersistedStrategyData();
+      if (cancelled) return;
+      await refreshWorkerRunHistory();
+    };
+
+    const timer = window.setInterval(() => {
+      void refreshScheduledWorkerData();
+    }, workerSchedulerPollIntervalMs);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    schedulerStatus.running,
+    schedulerStatus.runCount,
+    refreshPersistedStrategyData,
+    refreshWorkerRunHistory,
+    refreshWorkerSchedulerStatus,
+  ]);
+
   const handleRunWorker = async () => {
     if (databaseSchemaStatus.ready === false && databaseSchemaStatus.missingTables.length > 0) {
       notification.error({
@@ -1853,6 +1892,14 @@ function StrategyMonitorCenter() {
               </Space>
             }
           >
+            <Space className="worker-scheduler-meta" wrap>
+              <Tag color={schedulerStatus.running ? "green" : "default"}>
+                自动刷新：{schedulerStatus.running ? "运行中" : "未启动"}
+              </Tag>
+              <Text type="secondary">
+                运行中每 {workerSchedulerPollIntervalMs / 1000} 秒同步状态；发现新运行后自动刷新历史和策略库。
+              </Text>
+            </Space>
             <Row gutter={[12, 12]}>
               <Col xs={12} md={6}>
                 <Statistic title="状态" value={schedulerStatus.running ? "运行中" : "未启动"} valueStyle={{ color: schedulerStatus.running ? "#52c41a" : "#8c8c8c" }} />

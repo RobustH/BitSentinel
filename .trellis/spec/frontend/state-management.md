@@ -651,6 +651,49 @@ void refreshWorkerRunHistory();
 
 ---
 
+## 前端 Worker 调度状态自动刷新约定
+
+### 1. Scope / Trigger
+- Trigger: Worker 定时调度启动后，前端需要持续观察后端运行状态，并在新一轮运行完成后同步事实数据。
+- Scope: 只在策略监控页挂载期间轮询调度状态，不做全局后台轮询、不引入 WebSocket/SSE、不引入 React Query/SWR。
+
+### 2. Signatures
+- Component: `StrategyMonitorCenter`
+- Poll action: `refreshWorkerSchedulerStatus()`
+- Data sync actions:
+  - `refreshPersistedStrategyData()`
+  - `refreshWorkerRunHistory()`
+- State key: `strategyPersistenceStatus.schedulerStatus.runCount`
+
+### 3. Contracts
+- 页面只在 `schedulerStatus.running === true` 时启动定时器。
+- 定时器必须在 `useEffect` cleanup 中清理。
+- 前端轮询间隔第一版固定为 5 秒。
+- 每轮轮询只刷新调度状态；只有当最新 `runCount` 大于前端已同步的 `runCount` 时，才刷新持久化策略数据和 Worker 运行历史。
+- 自动刷新仍只能调用 store action，不得在组件中直接 `fetch` 后端 API。
+- 调度停止时记录当前 `runCount`，避免下次启动后重复同步旧运行。
+
+### 4. Validation & Error Matrix
+| 条件 | 处理 |
+|---|---|
+| 调度未运行 | 不启动轮询 |
+| 调度运行中 | 每 5 秒刷新调度状态 |
+| `runCount` 增加 | 刷新策略库和运行历史 |
+| 页面卸载或调度停止 | 清理定时器 |
+| 状态刷新失败 | 由 store action 保留旧状态并写入错误 |
+
+### 5. Good/Base/Bad Cases
+- Good: 用户启动调度后停留在策略监控页，运行历史会在新运行后自动更新。
+- Base: 后端运行状态未变化时，只更新调度状态，不重复刷新策略库。
+- Bad: 未运行状态仍持续轮询，或页面切换后定时器没有清理。
+
+### 6. Tests Required
+- TypeScript build 必须通过。
+- 涉及 store action 行为时运行 store 测试。
+
+
+---
+
 ## 后端数据库连接状态接入约定
 
 ### 1. Scope / Trigger

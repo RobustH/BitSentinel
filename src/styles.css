@@ -74,6 +74,10 @@ body {
   margin-top: 16px;
 }
 
+.worker-scheduler-meta {
+  margin-bottom: 16px;
+}
+
 .tv-chart-shell {
   background: #0b1220;
   border: 1px solid rgba(148, 163, 184, 0.14);
