@@ -773,3 +773,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: 后端数据库表状态诊断
+
+**Date**: 2026-05-23
+**Task**: 后端数据库表状态诊断
+**Branch**: `main`
+
+### Summary
+
+新增只读 schema 诊断接口，返回受管理表 existing/missing 状态，用于区分数据库连通和业务表未初始化问题。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b4b1b15` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
