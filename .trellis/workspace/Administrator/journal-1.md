@@ -1004,3 +1004,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: 前端Worker调度自动刷新
+
+**Date**: 2026-05-23
+**Task**: 前端Worker调度自动刷新
+**Branch**: `main`
+
+### Summary
+
+策略监控页在 Worker 调度运行中每 5 秒刷新调度状态，发现 runCount 增加后自动同步持久化策略数据和运行历史。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c5f976e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
