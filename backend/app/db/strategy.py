@@ -1,9 +1,27 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+
+
+class StrategyInstanceRecord(Base):
+    __tablename__ = "strategy_instances"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    symbols_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    condition_ids_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    risk_signal_ids_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    signal_ids_by_slot_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
 
 
 class StrategyStateRecord(Base):

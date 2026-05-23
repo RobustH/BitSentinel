@@ -1,15 +1,18 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db_session
 from app.models.strategy import (
+    PersistedStrategyInstance,
     PersistedStrategySignal,
     PersistedStrategyState,
     PersistedStrategyWorkerRun,
     StrategyEvaluationRequest,
     StrategyEvaluationResponse,
+    StrategyInstanceCreateRequest,
+    StrategyInstanceUpdateRequest,
     StrategyPersistenceResult,
     StrategyWorkerRunRequest,
     StrategyWorkerRunResponse,
@@ -29,6 +32,58 @@ DbSessionDep = Annotated[Session, Depends(get_db_session)]
 def evaluate_strategy(request: StrategyEvaluationRequest) -> StrategyEvaluationResponse:
     evaluator = StrategyEvaluator()
     return StrategyEvaluationResponse(results=evaluator.evaluate_all(request))
+
+
+@router.get("/instances", response_model=list[PersistedStrategyInstance])
+def list_strategy_instances(db: DbSessionDep) -> list[PersistedStrategyInstance]:
+    return StrategyPersistenceRepository(db).list_strategy_instances()
+
+
+@router.post("/instances", response_model=PersistedStrategyInstance)
+def create_strategy_instance(
+    request: StrategyInstanceCreateRequest,
+    db: DbSessionDep,
+) -> PersistedStrategyInstance:
+    instance = StrategyPersistenceRepository(db).create_strategy_instance(request)
+    db.commit()
+    return instance
+
+
+@router.put("/instances/{instance_id}", response_model=PersistedStrategyInstance)
+def update_strategy_instance(
+    instance_id: str,
+    request: StrategyInstanceUpdateRequest,
+    db: DbSessionDep,
+) -> PersistedStrategyInstance:
+    instance = StrategyPersistenceRepository(db).update_strategy_instance(instance_id, request)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Strategy instance not found")
+    db.commit()
+    return instance
+
+
+@router.post("/instances/{instance_id}/enable", response_model=PersistedStrategyInstance)
+def enable_strategy_instance(instance_id: str, db: DbSessionDep) -> PersistedStrategyInstance:
+    instance = StrategyPersistenceRepository(db).set_strategy_instance_enabled(
+        instance_id,
+        enabled=True,
+    )
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Strategy instance not found")
+    db.commit()
+    return instance
+
+
+@router.post("/instances/{instance_id}/disable", response_model=PersistedStrategyInstance)
+def disable_strategy_instance(instance_id: str, db: DbSessionDep) -> PersistedStrategyInstance:
+    instance = StrategyPersistenceRepository(db).set_strategy_instance_enabled(
+        instance_id,
+        enabled=False,
+    )
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Strategy instance not found")
+    db.commit()
+    return instance
 
 
 @router.post("/worker/run-once", response_model=StrategyWorkerRunResponse)

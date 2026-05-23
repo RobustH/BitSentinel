@@ -67,6 +67,58 @@ def test_worker_run_once_can_persist_events(client: TestClient) -> None:
     assert runs_response.json()[0]["upserted_state_count"] == 1
 
 
+def _strategy_instance_payload() -> dict[str, object]:
+    return {
+        "id": "strategy-config-1",
+        "name": "三周期趋势策略",
+        "symbols": ["BTCUSDT", "ETHUSDT"],
+        "enabled": True,
+        "condition_ids": ["ema-trend-up", "macd-expansion"],
+        "risk_signal_ids": ["trend-invalid"],
+        "signal_ids_by_slot": {"direction_tf": ["ema-trend-up"]},
+    }
+
+
+def test_strategy_instance_configuration_crud(client: TestClient) -> None:
+    create_response = client.post("/api/strategy/instances", json=_strategy_instance_payload())
+    list_response = client.get("/api/strategy/instances")
+    update_response = client.put(
+        "/api/strategy/instances/strategy-config-1",
+        json={
+            "name": "更新后的趋势策略",
+            "symbols": ["SOLUSDT"],
+            "enabled": False,
+            "condition_ids": ["oi-rising"],
+        },
+    )
+    enable_response = client.post("/api/strategy/instances/strategy-config-1/enable")
+
+    assert create_response.status_code == 200
+    assert create_response.json()["symbols"] == ["BTCUSDT", "ETHUSDT"]
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["id"] == "strategy-config-1"
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "更新后的趋势策略"
+    assert update_response.json()["symbols"] == ["SOLUSDT"]
+    assert update_response.json()["enabled"] is False
+    assert update_response.json()["condition_ids"] == ["oi-rising"]
+    assert enable_response.status_code == 200
+    assert enable_response.json()["enabled"] is True
+
+
+def test_strategy_instance_configuration_missing_instance_returns_404(
+    client: TestClient,
+) -> None:
+    update_response = client.put(
+        "/api/strategy/instances/missing",
+        json={"name": "不存在"},
+    )
+    disable_response = client.post("/api/strategy/instances/missing/disable")
+
+    assert update_response.status_code == 404
+    assert disable_response.status_code == 404
+
+
 def test_worker_run_once_without_persist_does_not_write_events(client: TestClient) -> None:
     response = client.post(
         "/api/strategy/worker/run-once",

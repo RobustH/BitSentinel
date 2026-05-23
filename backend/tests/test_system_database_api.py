@@ -81,6 +81,7 @@ def test_database_schema_service_reports_missing_tables() -> None:
     assert result.ready is False
     assert result.existing_tables == []
     assert result.missing_tables == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
@@ -100,6 +101,7 @@ def test_database_schema_service_reports_ready_tables() -> None:
     assert result.ready is True
     assert result.missing_tables == []
     assert result.existing_tables == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
@@ -150,6 +152,7 @@ def test_database_schema_endpoint_reports_missing_tables(monkeypatch) -> None:
     assert payload["ready"] is False
     assert payload["existing_tables"] == []
     assert payload["missing_tables"] == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",

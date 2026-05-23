@@ -19,6 +19,7 @@ def _sqlite_engine() -> Engine:
 
 def test_managed_table_names_include_strategy_persistence_tables() -> None:
     assert managed_table_names() == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
@@ -32,22 +33,26 @@ def test_initialize_database_creates_strategy_tables_once() -> None:
     second = initialize_database(engine, "sqlite+pysqlite:///:memory:")
 
     assert first.created_tables == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
     ]
     assert first.existing_tables == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
     ]
     assert second.created_tables == []
     assert second.existing_tables == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
     ]
     assert set(inspect(engine).get_table_names()) == {
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",
@@ -69,6 +74,7 @@ def test_init_db_script_outputs_json_without_credentials(monkeypatch) -> None:
     assert payload["ok"] is True
     assert payload["target"]["driver"] == "sqlite+pysqlite"
     assert payload["managed_tables"] == [
+        "strategy_instances",
         "strategy_signals",
         "strategy_states",
         "strategy_worker_runs",

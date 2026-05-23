@@ -1,14 +1,23 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.strategy import StrategySignalRecord, StrategyStateRecord, StrategyWorkerRunRecord
+from app.db.strategy import (
+    StrategyInstanceRecord,
+    StrategySignalRecord,
+    StrategyStateRecord,
+    StrategyWorkerRunRecord,
+)
 from app.models.strategy import (
+    PersistedStrategyInstance,
     PersistedStrategySignal,
     PersistedStrategyState,
     PersistedStrategyWorkerRun,
+    StrategyInstanceCreateRequest,
+    StrategyInstanceUpdateRequest,
     StrategySignalEvent,
     StrategyStateEvent,
     StrategyWorkerRunResponse,
@@ -40,6 +49,80 @@ class StrategyPersistenceRepository:
             inserted_signal_count=inserted_signal_count,
         )
 
+    def create_strategy_instance(
+        self,
+        request: StrategyInstanceCreateRequest,
+    ) -> PersistedStrategyInstance:
+        now = datetime.now().astimezone()
+        record = StrategyInstanceRecord(
+            id=request.id,
+            name=request.name,
+            symbols_json=_dump_json(request.symbols),
+            enabled=request.enabled,
+            condition_ids_json=_dump_json(request.condition_ids),
+            risk_signal_ids_json=_dump_json(request.risk_signal_ids),
+            signal_ids_by_slot_json=_dump_json(request.signal_ids_by_slot),
+            created_at=now,
+            updated_at=now,
+        )
+        self._session.add(record)
+        self._session.flush()
+        return _to_persisted_strategy_instance(record)
+
+    def update_strategy_instance(
+        self,
+        instance_id: str,
+        request: StrategyInstanceUpdateRequest,
+    ) -> PersistedStrategyInstance | None:
+        record = self._get_strategy_instance_record(instance_id)
+        if record is None:
+            return None
+
+        if request.name is not None:
+            record.name = request.name
+        if request.symbols is not None:
+            record.symbols_json = _dump_json(request.symbols)
+        if request.enabled is not None:
+            record.enabled = request.enabled
+        if request.condition_ids is not None:
+            record.condition_ids_json = _dump_json(request.condition_ids)
+        if request.risk_signal_ids is not None:
+            record.risk_signal_ids_json = _dump_json(request.risk_signal_ids)
+        if request.signal_ids_by_slot is not None:
+            record.signal_ids_by_slot_json = _dump_json(request.signal_ids_by_slot)
+        record.updated_at = datetime.now().astimezone()
+        self._session.flush()
+        return _to_persisted_strategy_instance(record)
+
+    def set_strategy_instance_enabled(
+        self,
+        instance_id: str,
+        enabled: bool,
+    ) -> PersistedStrategyInstance | None:
+        record = self._get_strategy_instance_record(instance_id)
+        if record is None:
+            return None
+
+        record.enabled = enabled
+        record.updated_at = datetime.now().astimezone()
+        self._session.flush()
+        return _to_persisted_strategy_instance(record)
+
+    def list_strategy_instances(self) -> list[PersistedStrategyInstance]:
+        statement = select(StrategyInstanceRecord).order_by(
+            StrategyInstanceRecord.updated_at.desc()
+        )
+        return [
+            _to_persisted_strategy_instance(record)
+            for record in self._session.scalars(statement).all()
+        ]
+
+    def get_strategy_instance(self, instance_id: str) -> PersistedStrategyInstance | None:
+        record = self._get_strategy_instance_record(instance_id)
+        if record is None:
+            return None
+        return _to_persisted_strategy_instance(record)
+
     def list_states(
         self,
         instance_id: str | None = None,
@@ -62,6 +145,11 @@ class StrategyPersistenceRepository:
             )
             for record in self._session.scalars(statement).all()
         ]
+
+    def _get_strategy_instance_record(self, instance_id: str) -> StrategyInstanceRecord | None:
+        return self._session.scalar(
+            select(StrategyInstanceRecord).where(StrategyInstanceRecord.id == instance_id)
+        )
 
     def list_signals(
         self,
@@ -191,3 +279,40 @@ class StrategyPersistenceRepository:
 
 def _parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value)
+
+
+def _dump_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _load_json(value: str, fallback: object) -> object:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return fallback
+
+
+def _to_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _to_slot_mapping(value: object) -> dict[str, list[str]]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: _to_string_list(raw) for key, raw in value.items() if isinstance(key, str)}
+
+
+def _to_persisted_strategy_instance(record: StrategyInstanceRecord) -> PersistedStrategyInstance:
+    return PersistedStrategyInstance(
+        id=record.id,
+        name=record.name,
+        symbols=_to_string_list(_load_json(record.symbols_json, [])),
+        enabled=record.enabled,
+        condition_ids=_to_string_list(_load_json(record.condition_ids_json, [])),
+        risk_signal_ids=_to_string_list(_load_json(record.risk_signal_ids_json, [])),
+        signal_ids_by_slot=_to_slot_mapping(_load_json(record.signal_ids_by_slot_json, {})),
+        created_at=record.created_at.isoformat(),
+        updated_at=record.updated_at.isoformat(),
+    )

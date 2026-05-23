@@ -139,6 +139,37 @@ class StrategyWorkerSchedulerStatus(BaseModel):
     skipped_count: int = 0
 
 
+class StrategyInstanceCreateRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=160)
+    symbols: list[str]
+    enabled: bool = True
+    condition_ids: list[str] = Field(default_factory=list)
+    risk_signal_ids: list[str] = Field(default_factory=list)
+    signal_ids_by_slot: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class StrategyInstanceUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    symbols: list[str] | None = None
+    enabled: bool | None = None
+    condition_ids: list[str] | None = None
+    risk_signal_ids: list[str] | None = None
+    signal_ids_by_slot: dict[str, list[str]] | None = None
+
+
+class PersistedStrategyInstance(BaseModel):
+    id: str
+    name: str
+    symbols: list[str]
+    enabled: bool
+    condition_ids: list[str]
+    risk_signal_ids: list[str]
+    signal_ids_by_slot: dict[str, list[str]]
+    created_at: str
+    updated_at: str
+
+
 class StrategyPersistenceResult(BaseModel):
     upserted_state_count: int
     inserted_signal_count: int

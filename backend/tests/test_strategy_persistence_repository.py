@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db.base import Base
 from app.db.strategy import StrategySignalRecord, StrategyStateRecord, StrategyWorkerRunRecord
 from app.models.strategy import (
+    StrategyInstanceCreateRequest,
+    StrategyInstanceUpdateRequest,
     StrategySignalEvent,
     StrategyStateEvent,
     StrategyWorkerRunResponse,
@@ -148,3 +150,62 @@ def test_list_worker_runs_returns_recent_runs_first_with_limit() -> None:
 
     assert len(runs) == 1
     assert runs[0].run_id == "run-2"
+
+
+def test_create_and_list_strategy_instance_configuration() -> None:
+    session = _session()
+    repository = StrategyPersistenceRepository(session)
+
+    created = repository.create_strategy_instance(
+        StrategyInstanceCreateRequest(
+            id="strategy-config-1",
+            name="三周期趋势策略",
+            symbols=["BTCUSDT", "ETHUSDT"],
+            enabled=True,
+            condition_ids=["ema-trend-up", "macd-expansion"],
+            risk_signal_ids=["trend-invalid"],
+            signal_ids_by_slot={"direction_tf": ["ema-trend-up"]},
+        )
+    )
+    listed = repository.list_strategy_instances()
+
+    assert created.id == "strategy-config-1"
+    assert created.symbols == ["BTCUSDT", "ETHUSDT"]
+    assert created.condition_ids == ["ema-trend-up", "macd-expansion"]
+    assert created.signal_ids_by_slot == {"direction_tf": ["ema-trend-up"]}
+    assert listed[0].id == "strategy-config-1"
+
+
+def test_update_strategy_instance_configuration() -> None:
+    session = _session()
+    repository = StrategyPersistenceRepository(session)
+    repository.create_strategy_instance(
+        StrategyInstanceCreateRequest(
+            id="strategy-config-1",
+            name="旧策略",
+            symbols=["BTCUSDT"],
+        )
+    )
+
+    updated = repository.update_strategy_instance(
+        "strategy-config-1",
+        StrategyInstanceUpdateRequest(
+            name="新策略",
+            symbols=["SOLUSDT"],
+            enabled=False,
+            condition_ids=["oi-rising"],
+        ),
+    )
+
+    assert updated is not None
+    assert updated.name == "新策略"
+    assert updated.symbols == ["SOLUSDT"]
+    assert updated.enabled is False
+    assert updated.condition_ids == ["oi-rising"]
+
+
+def test_set_strategy_instance_enabled_returns_none_for_missing_instance() -> None:
+    session = _session()
+    repository = StrategyPersistenceRepository(session)
+
+    assert repository.set_strategy_instance_enabled("missing", enabled=True) is None
