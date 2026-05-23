@@ -3,7 +3,7 @@
   "name": "frontend-database-init-guidance",
   "title": "前端数据库初始化指引",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "frontend",
   "scope": "database-schema-diagnostics",
   "package": "src",
