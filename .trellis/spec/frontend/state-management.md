@@ -648,6 +648,7 @@ void refreshDatabaseConnectionStatus();
 ### 2. Signatures
 - API client：`fetchBackendDatabaseSchemaStatus()`。
 - Store action：`refreshDatabaseSchemaStatus(): Promise<void>`。
+- Composite action：`diagnoseDatabaseReadiness(): Promise<void>`。
 - Store state：`databaseSchemaStatus`。
 - Backend endpoint：`GET /api/system/database/schema`。
 
@@ -660,6 +661,7 @@ void refreshDatabaseConnectionStatus();
 - `target` 只允许展示 `driver`、`host`、`port`、`database`。
 - Store action 成功时更新表状态、最近检查时间和脱敏目标。
 - Store action 失败时保留旧表状态，只写入错误状态。
+- `diagnoseDatabaseReadiness` 必须先调用 `refreshDatabaseConnectionStatus`；只有连接结果为 `connected = true` 时才继续调用 `refreshDatabaseSchemaStatus`。
 - 页面组件只能调用 store action，不得直接 fetch。
 - 页面不得提供建表按钮；初始化仍通过后端 CLI 或后续受认证管理入口完成。
 - 缺表时页面可以展示只读初始化指引，命令固定为 `python -m app.scripts.init_db`，并说明命令读取后端 `.env` / `BITSENTINEL_DATABASE_URL`。
@@ -671,6 +673,7 @@ void refreshDatabaseConnectionStatus();
 | 后端表齐全 | 显示 ready 和已存在表 |
 | 后端缺表 | 显示 missing tables 和未就绪状态 |
 | 请求后端失败 | 保留旧表状态，显示请求错误 |
+| 一键诊断连接失败 | 不继续请求表状态 |
 | 响应包含敏感字段 | 前端不得展示用户名、密码或完整 URL |
 
 ### 5. Good/Base/Bad Cases
@@ -681,6 +684,7 @@ void refreshDatabaseConnectionStatus();
 ### 6. Tests Required
 - 成功分支：断言 store 写入 ready/missing/existing 表状态。
 - 失败分支：断言错误写入且不清空旧表状态。
+- 一键诊断：断言连接成功后查表，连接失败时不查表。
 - TypeScript build 必须通过。
 
 ### 7. Wrong vs Correct
