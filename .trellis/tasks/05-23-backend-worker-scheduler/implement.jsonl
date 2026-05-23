@@ -1,0 +1,3 @@
+{"type":"context","text":"本任务实现后端 Worker 定时调度。读取 .trellis/spec/architecture/index.md、backend-roadmap.md、technology-boundaries.md，并遵守 Python 后端负责 Worker 的架构边界。"}
+{"type":"plan","text":"新增 StrategyWorkerScheduler 服务，提供 start/stop/status 和后台循环。路由层新增 /api/strategy/worker/scheduler/start、/stop、/status。模型层新增调度请求和状态响应。"}
+{"type":"constraint","text":"调度器第一版为内存级，不做进程重启恢复；启动时必须传入 worker_request，因为当前还没有后端策略配置事实源。"}

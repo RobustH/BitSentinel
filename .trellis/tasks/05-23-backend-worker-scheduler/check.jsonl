@@ -1,0 +1,3 @@
+{"type":"check","text":"运行 backend/.venv/Scripts/python.exe -m ruff check ."}
+{"type":"check","text":"运行 backend/.venv/Scripts/python.exe -m pytest"}
+{"type":"check","text":"确认新增 API 不破坏 /api/strategy/worker/run-once、/states、/signals、/worker/runs 现有契约。"}
