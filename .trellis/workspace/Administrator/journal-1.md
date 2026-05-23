@@ -839,3 +839,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: 前端数据库初始化指引
+
+**Date**: 2026-05-23
+**Task**: 前端数据库初始化指引
+**Branch**: `main`
+
+### Summary
+
+数据库表缺失时在系统设置页展示后端初始化命令提示，保持只读诊断边界，不提供网页建表入口。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `03bdce8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
