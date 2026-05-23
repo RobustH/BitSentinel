@@ -486,6 +486,8 @@ void refreshPersistedStrategyData();
 - Store action 失败时返回 `null`，页面可据此展示失败通知。
 - Store action 失败时不得清空上一条成功 Worker 运行摘要。
 - 页面组件仍只能调用 store action；成功通知展示评估数量、更新状态数、插入信号数，失败通知展示 `strategyPersistenceStatus.error`。
+- 页面若已知 `databaseSchemaStatus.ready === false` 且存在 `missingTables`，应在调用 Worker action 前提示缺失表和初始化命令，并阻止本次入库请求。
+- 页面不得因 `databaseSchemaStatus.ready === null` 阻止用户手动运行；未知状态下保持原流程。
 
 ### 4. Validation & Error Matrix
 | 条件 | 处理 |
@@ -495,6 +497,8 @@ void refreshPersistedStrategyData();
 | Worker 成功但后续刷新失败 | 保留旧数据，记录错误 |
 | 当前已有强信号 | 后端负责去重，前端只提交 `existing_signals` |
 | 已有上一条成功运行摘要 | 失败时保留摘要，方便用户判断上一次成功入库结果 |
+| 已知受管理表缺失 | 前端提示缺失表和 `python -m app.scripts.init_db`，不调用 Worker action |
+| 尚未检查表状态 | 不阻止手动运行 Worker |
 
 ### 5. Good/Base/Bad Cases
 - Good: 策略监控页点击“运行Worker并入库”，随后页面展示真实库状态。
