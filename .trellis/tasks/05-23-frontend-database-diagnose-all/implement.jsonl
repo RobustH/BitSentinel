@@ -1,0 +1,1 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"数据库连接和表状态诊断必须通过 store action，前端只读展示，不得执行建表或保存数据库凭据。"}

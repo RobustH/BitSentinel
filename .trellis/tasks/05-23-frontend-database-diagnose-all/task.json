@@ -1,0 +1,31 @@
+{
+  "id": "frontend-database-diagnose-all",
+  "name": "frontend-database-diagnose-all",
+  "title": "前端一键数据库诊断",
+  "description": "",
+  "status": "done",
+  "dev_type": "frontend",
+  "scope": "database-diagnostics",
+  "package": "src",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "d733bb1",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/App.tsx",
+    "src/store/appStore.ts",
+    "src/store/appStore.test.ts",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "系统设置页新增一键数据库诊断，先测试连接，连接成功后再检查受管理表状态。",
+  "meta": {}
+}
