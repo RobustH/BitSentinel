@@ -905,3 +905,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: Worker入库前置诊断提示
+
+**Date**: 2026-05-23
+**Task**: Worker入库前置诊断提示
+**Branch**: `main`
+
+### Summary
+
+策略监控页运行 Worker 入库前，如果已知数据库受管理表缺失，则提示缺失表和初始化命令并阻止本次请求。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0ddb0b1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
