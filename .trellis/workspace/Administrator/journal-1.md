@@ -1103,3 +1103,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 34: 策略配置完整持久化
+
+**Date**: 2026-05-23
+**Task**: 策略配置完整持久化
+**Branch**: `main`
+
+### Summary
+
+后端 strategy_instances 增加 template_id、slot_template_id、version、version_history、slots 完整配置字段；init_db 支持为旧表补列并保留已有数据；前端 API client 完整映射 snake_case/camelCase；补充后端 repository/API/初始化/schema 测试和前端 API client 测试；真实数据库已执行一次 init_db 补齐列。验证：ruff check、pytest、npm.cmd test、npx.cmd tsc --noEmit、npm.cmd run build。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e69c6f5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
