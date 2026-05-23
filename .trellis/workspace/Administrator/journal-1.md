@@ -1070,3 +1070,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 33: 前端策略配置同步后端
+
+**Date**: 2026-05-23
+**Task**: 前端策略配置同步后端
+**Branch**: `main`
+
+### Summary
+
+策略列表页新增后端策略配置同步和保存入口；store 增加策略配置同步状态、后端读取/保存 action、启停乐观同步；API client 完成策略实例 DTO 转换；补充 store 单测与前端状态管理规范。验证：npm.cmd test、npx.cmd tsc --noEmit、npm.cmd run build。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9d0aec3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
