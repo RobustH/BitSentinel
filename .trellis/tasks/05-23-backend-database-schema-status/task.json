@@ -1,0 +1,32 @@
+{
+  "id": "backend-database-schema-status",
+  "name": "backend-database-schema-status",
+  "title": "后端数据库表状态诊断",
+  "description": "",
+  "status": "done",
+  "dev_type": "backend",
+  "scope": "database-schema-diagnostics",
+  "package": "backend",
+  "priority": "P2",
+  "creator": "Administrator",
+  "assignee": "Administrator",
+  "createdAt": "2026-05-23",
+  "completedAt": "2026-05-23",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "b4b1b15",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/api/system.py",
+    "backend/app/models/system.py",
+    "backend/app/services/database/initializer.py",
+    "backend/tests/test_system_database_api.py",
+    ".trellis/spec/architecture/backend-roadmap.md"
+  ],
+  "notes": "新增只读数据库 schema 诊断接口，返回受管理表 existing/missing 状态，避免连接成功但表未初始化难以排查。",
+  "meta": {}
+}

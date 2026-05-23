@@ -1,0 +1,2 @@
+{"file":".trellis/spec/architecture/backend-roadmap.md","reason":"检查 schema 诊断接口是否只读、脱敏、稳定返回，并与初始化命令边界一致。"}
+{"file":".trellis/spec/architecture/technology-boundaries.md","reason":"检查没有把数据库结构诊断或凭据泄漏到前端/Node。"}

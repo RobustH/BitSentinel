@@ -1,0 +1,2 @@
+{"file":".trellis/spec/architecture/backend-roadmap.md","reason":"数据库连接、初始化命令、后端 API 分层和不得暴露无认证建表接口的约定。"}
+{"file":".trellis/spec/architecture/technology-boundaries.md","reason":"确认数据库事实源和诊断能力属于 Python 后端边界。"}
