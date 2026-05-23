@@ -3,7 +3,7 @@
   "name": "frontend-database-diagnose-all",
   "title": "前端一键数据库诊断",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "frontend",
   "scope": "database-diagnostics",
   "package": "src",
