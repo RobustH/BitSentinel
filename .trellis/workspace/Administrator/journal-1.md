@@ -1169,3 +1169,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 36: Worker调度接入后端K线行情源
+
+**Date**: 2026-05-23
+**Task**: Worker调度接入后端K线行情源
+**Branch**: `main`
+
+### Summary
+
+完成 Worker 定时调度的后端行情事实源接入：database 配置模式每轮从 enabled 策略收集 symbol，复用 Binance REST 公共 K 线服务构造 market_series，保留 request 快照模式兼容；行情拉取失败作为非致命警告写入调度状态，不中断本轮运行。新增 FakeMarketDataSource 隔离外网测试，更新后端调度规格。验证通过 backend ruff 和 59 个 pytest。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b279e38` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
