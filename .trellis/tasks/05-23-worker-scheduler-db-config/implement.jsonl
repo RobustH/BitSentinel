@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/architecture/index.md", "reason": "后端 Worker 和数据库事实源边界"}
+{"file": ".trellis/spec/architecture/backend-roadmap.md", "reason": "策略 Worker 调度和策略实例事实源契约"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端接后端入口规范"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "前端 Worker 调度状态 action 和失败保留规则"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "前端 API client 类型映射规则"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端测试和类型检查要求"}
