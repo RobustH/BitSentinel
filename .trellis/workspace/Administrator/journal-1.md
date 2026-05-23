@@ -872,3 +872,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: 前端一键数据库诊断
+
+**Date**: 2026-05-23
+**Task**: 前端一键数据库诊断
+**Branch**: `main`
+
+### Summary
+
+系统设置页新增一键数据库诊断入口，先测试连接，连接成功后自动检查受管理表状态。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d733bb1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
