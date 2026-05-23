@@ -938,3 +938,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: 后端Worker定时调度
+
+**Date**: 2026-05-23
+**Task**: 后端Worker定时调度
+**Branch**: `main`
+
+### Summary
+
+新增后端进程内 Worker 调度器，支持启动、停止、状态查询、persist 开关和运行状态记录；补充 API 与 service 测试。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f2ac0a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
